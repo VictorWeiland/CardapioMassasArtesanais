@@ -209,12 +209,23 @@ class AdminDashboard {
 
     btnOpenPass?.addEventListener('click', () => {
       formPass?.reset();
-      modalPass?.classList.remove('hidden');
+      if (modalPass) {
+        modalPass.classList.remove('hidden');
+        modalPass.style.display = 'flex';
+      }
     });
 
-    const closePassModal = () => modalPass?.classList.add('hidden');
+    const closePassModal = () => {
+      if (modalPass) {
+        modalPass.classList.add('hidden');
+        modalPass.style.display = 'none';
+      }
+    };
     btnClosePass?.addEventListener('click', closePassModal);
     btnCancelPass?.addEventListener('click', closePassModal);
+    modalPass?.addEventListener('click', (e) => {
+      if (e.target === modalPass) closePassModal();
+    });
 
     formPass?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -309,11 +320,17 @@ class AdminDashboard {
     });
 
     const closeProductModal = () => {
-      modalProduct?.classList.add('hidden');
+      if (modalProduct) {
+        modalProduct.classList.add('hidden');
+        modalProduct.style.display = 'none';
+      }
     };
 
     btnCloseProduct?.addEventListener('click', closeProductModal);
     btnCancelProduct?.addEventListener('click', closeProductModal);
+    modalProduct?.addEventListener('click', (e) => {
+      if (e.target === modalProduct) closeProductModal();
+    });
 
     // Instant Photo Preview on file select
     inputFile?.addEventListener('change', () => {
@@ -846,7 +863,10 @@ class AdminDashboard {
       if (inputCat && this.categories.length > 0) inputCat.value = this.categories[0].id.toString();
     }
 
-    modal.classList.remove('hidden');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
   }
 
   private async handleSaveProduct(): Promise<void> {
