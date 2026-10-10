@@ -3,7 +3,7 @@
             <i class="fa fa-spinner fa-spin text-3xl mb-3 text-[#d97706]"></i>
             <p class="font-medium">Carregando as del\xEDcias do card\xE1pio artesanal...</p>
           </div>
-        `);let t=await fetch("/api/products?active=1");if(!t.ok)throw new Error("Erro ao carregar produtos");this.rawProducts=await t.json(),this.groupRawProducts(),this.renderMenu()}catch(t){console.error(t),this.menuContainer&&(this.menuContainer.innerHTML=`
+        `);let t=await fetch(`/api/products?active=1&_t=${Date.now()}`);if(!t.ok)throw new Error("Erro ao carregar produtos");this.rawProducts=await t.json(),this.groupRawProducts(),this.renderMenu()}catch(t){console.error(t),this.menuContainer&&(this.menuContainer.innerHTML=`
           <div class="col-span-full py-16 text-center text-red-500">
             <i class="fa fa-exclamation-triangle text-3xl mb-3"></i>
             <p>N\xE3o foi poss\xEDvel carregar os produtos do card\xE1pio no momento.</p>

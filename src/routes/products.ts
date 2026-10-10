@@ -47,6 +47,10 @@ export const upload = multer({
 // GET /api/products - List all products
 router.get('/', (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const { category_id, active, search } = req.query;
     let query = `
       SELECT p.*, c.name as category_name, c.slug as category_slug

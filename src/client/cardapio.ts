@@ -250,7 +250,7 @@ class CardapioApp {
         `;
       }
 
-      const res = await fetch("/api/products?active=1");
+      const res = await fetch(`/api/products?active=1&_t=${Date.now()}`);
       if (!res.ok) throw new Error("Erro ao carregar produtos");
       this.rawProducts = await res.json();
       this.groupRawProducts();
