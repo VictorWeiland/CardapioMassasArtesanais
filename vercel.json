@@ -9,6 +9,9 @@
         "includeFiles": [
           "index.html",
           "admin.html",
+          "favicon.ico",
+          "favicon.png",
+          "apple-touch-icon.png",
           "styles/**",
           "assets/**",
           "public/**",

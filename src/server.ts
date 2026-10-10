@@ -43,6 +43,36 @@ app.use('/styles', express.static(path.join(rootDir, 'styles')));
 app.use('/public', express.static(path.join(rootDir, 'public')));
 app.use(express.static(rootDir));
 
+// Explicit Favicon routes to guarantee delivery on Vercel and local
+function serveIcon(res: Response, filename: string, mime: string) {
+  const possiblePaths = [
+    path.join(rootDir, filename),
+    path.join(rootDir, 'public', filename),
+    path.join(rootDir, 'assets', filename),
+    path.resolve(process.cwd(), filename)
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(p);
+    }
+  }
+  res.status(404).end();
+}
+
+app.get('/favicon.ico', (_req: Request, res: Response) => {
+  serveIcon(res, 'favicon.ico', 'image/x-icon');
+});
+
+app.get('/favicon.png', (_req: Request, res: Response) => {
+  serveIcon(res, 'favicon.png', 'image/png');
+});
+
+app.get('/apple-touch-icon.png', (_req: Request, res: Response) => {
+  serveIcon(res, 'apple-touch-icon.png', 'image/png');
+});
+
 // API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/products', productsRouter);
