@@ -102,6 +102,7 @@ export async function initDatabase(forceReset: boolean = false): Promise<void> {
       description TEXT,
       price REAL NOT NULL,
       portion TEXT,
+      flavors TEXT,
       category_id INTEGER NOT NULL,
       image_url TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
@@ -151,19 +152,39 @@ export async function initDatabase(forceReset: boolean = false): Promise<void> {
     );
   `);
 
-  // Ensure 'portion' column exists on products table
+  // Ensure 'portion' and 'flavors' columns exist on products table
   try {
     const tableInfo = await db.all<{ name: string }>("PRAGMA table_info(products)");
     if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'portion')) {
       await db.exec("ALTER TABLE products ADD COLUMN portion TEXT;");
     }
+    if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'flavors')) {
+      await db.exec("ALTER TABLE products ADD COLUMN flavors TEXT;");
+    }
+
     await db.exec(`
       UPDATE products
       SET portion = SUBSTR(name, INSTR(name, '(') + 1, INSTR(name, ')') - INSTR(name, '(') - 1)
       WHERE (portion IS NULL OR portion = '') AND name LIKE '%(%)%';
+
+      UPDATE products
+      SET flavors = 'Queijo, Carne Moída'
+      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Panqueca%';
+
+      UPDATE products
+      SET flavors = 'Muçarela, Calabresa, Frango com Requeijão'
+      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Pizza Brotinho%';
+
+      UPDATE products
+      SET flavors = 'Frango, Palmito'
+      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Empada%';
+
+      UPDATE products
+      SET flavors = 'Frango com Catupiry, Calabresa com Queijo'
+      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Pão Recheado%';
     `);
   } catch (err) {
-    console.error('Migration portion column error:', err);
+    console.error('Migration portion/flavors column error:', err);
   }
 
   // Seed default admin account if none exists
@@ -414,10 +435,21 @@ export async function populatePadeiroMenu(): Promise<void> {
   for (const prod of menuProducts) {
     const match = prod.name.match(/\((.*?)\)/);
     const portion = match ? match[1].trim() : null;
+    let flavors: string | null = null;
+    if (prod.name.includes('Panqueca')) {
+      flavors = 'Queijo, Carne Moída';
+    } else if (prod.name.includes('Pizza Brotinho')) {
+      flavors = 'Muçarela, Calabresa, Frango com Requeijão';
+    } else if (prod.name.includes('Empada')) {
+      flavors = 'Frango, Palmito';
+    } else if (prod.name.includes('Pão Recheado')) {
+      flavors = 'Frango com Catupiry, Calabresa com Queijo';
+    }
+
     await db.run(
-      `INSERT INTO products (name, description, price, portion, category_id, image_url, active)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [prod.name, prod.description, prod.price, portion, prod.category_id, prod.image_url]
+      `INSERT INTO products (name, description, price, portion, flavors, category_id, image_url, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [prod.name, prod.description, prod.price, portion, flavors, prod.category_id, prod.image_url]
     );
   }
 

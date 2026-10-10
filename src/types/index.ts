@@ -11,6 +11,7 @@ export interface Product {
   description: string;
   price: number;
   portion?: string;
+  flavors?: string;
   category_id: number;
   category_name?: string;
   category_slug?: string;
@@ -24,6 +25,7 @@ export interface CreateProductInput {
   description?: string;
   price: number;
   portion?: string;
+  flavors?: string;
   category_id: number;
   image_url?: string;
 }
@@ -33,6 +35,7 @@ export interface UpdateProductInput {
   description?: string;
   price?: number;
   portion?: string;
+  flavors?: string;
   category_id?: number;
   image_url?: string;
   active?: number;

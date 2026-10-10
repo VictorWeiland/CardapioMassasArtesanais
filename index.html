@@ -144,12 +144,22 @@
         </div>
 
         <!-- Opções de Porção / Peso / Unidades -->
-        <div class="mt-5 border-t border-gray-100 pt-4">
-          <label class="block text-xs font-black uppercase tracking-wider text-[#b45309] mb-2.5">
-            Selecione a opção desejada:
+        <div id="var-portions-section" class="mt-5 border-t border-gray-100 pt-4">
+          <label id="var-portions-label" class="block text-xs font-black uppercase tracking-wider text-[#b45309] mb-2.5">
+            1. Selecione a porção / tamanho:
           </label>
           <div id="var-options-container" class="space-y-2.5">
             <!-- Opções renderizadas dinamicamente via JS -->
+          </div>
+        </div>
+
+        <!-- Opções de Sabor / Recheio -->
+        <div id="var-flavors-section" class="mt-5 border-t border-gray-100 pt-4 hidden">
+          <label id="var-flavors-label" class="block text-xs font-black uppercase tracking-wider text-[#b45309] mb-2.5">
+            2. Selecione o sabor / recheio:
+          </label>
+          <div id="var-flavors-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- Opções de sabores renderizadas via JS -->
           </div>
         </div>
 

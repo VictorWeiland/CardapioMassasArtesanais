@@ -109,7 +109,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/products - Create new product with photo upload
 router.post('/', requireAdminAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
-    const { name, description, price, portion, category_id, image_url } = req.body;
+    const { name, description, price, portion, flavors, category_id, image_url } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'O nome do produto é obrigatório' });
@@ -138,15 +138,17 @@ router.post('/', requireAdminAuth, upload.single('image'), async (req: Request, 
     }
 
     const finalPortion = portion && typeof portion === 'string' && portion.trim() !== '' ? portion.trim() : null;
+    const finalFlavors = flavors && typeof flavors === 'string' && flavors.trim() !== '' ? flavors.trim() : null;
 
     const result = await db.run(
-      `INSERT INTO products (name, description, price, portion, category_id, image_url, active)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO products (name, description, price, portion, flavors, category_id, image_url, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         name.trim(),
         description ? description.trim() : '',
         parsedPrice,
         finalPortion,
+        finalFlavors,
         parsedCatId,
         finalImageUrl
       ]
@@ -176,12 +178,13 @@ router.put('/:id', requireAdminAuth, upload.single('image'), async (req: Request
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
 
-    const { name, description, price, portion, category_id, image_url, active } = req.body;
+    const { name, description, price, portion, flavors, category_id, image_url, active } = req.body;
 
     const updatedName = name !== undefined ? name.trim() : existing.name;
     const updatedDesc = description !== undefined ? description.trim() : existing.description;
     const updatedPrice = price !== undefined ? parseFloat(price) : existing.price;
     const updatedPortion = portion !== undefined ? (typeof portion === 'string' && portion.trim() !== '' ? portion.trim() : null) : existing.portion;
+    const updatedFlavors = flavors !== undefined ? (typeof flavors === 'string' && flavors.trim() !== '' ? flavors.trim() : null) : existing.flavors;
     const updatedCatId = category_id !== undefined ? parseInt(category_id, 10) : existing.category_id;
     const updatedActive = active !== undefined ? Number(active) : existing.active;
 
@@ -198,9 +201,9 @@ router.put('/:id', requireAdminAuth, upload.single('image'), async (req: Request
 
     await db.run(`
       UPDATE products
-      SET name = ?, description = ?, price = ?, portion = ?, category_id = ?, image_url = ?, active = ?
+      SET name = ?, description = ?, price = ?, portion = ?, flavors = ?, category_id = ?, image_url = ?, active = ?
       WHERE id = ?
-    `, [updatedName, updatedDesc, updatedPrice, updatedPortion, updatedCatId, updatedImageUrl, updatedActive, id]);
+    `, [updatedName, updatedDesc, updatedPrice, updatedPortion, updatedFlavors, updatedCatId, updatedImageUrl, updatedActive, id]);
 
     const updatedProduct = await db.get<Product>(`
       SELECT p.*, c.name as category_name, c.slug as category_slug

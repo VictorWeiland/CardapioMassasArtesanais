@@ -735,6 +735,7 @@ class AdminDashboard {
             <div class="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
               <span>${p.name}</span>
               ${p.portion ? `<span class="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-200">${p.portion}</span>` : ''}
+              ${p.flavors ? `<span class="bg-purple-100 text-purple-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-purple-200" title="Opções: ${p.flavors}"><i class="fa fa-utensils text-[9px] mr-1"></i>${p.flavors.split(',').length} opções</span>` : ''}
             </div>
             <div class="text-xs text-gray-500 line-clamp-1 max-w-xs mt-0.5">${p.description || '-'}</div>
           </td>
@@ -793,6 +794,7 @@ class AdminDashboard {
     const inputCat = document.getElementById('product-category') as HTMLSelectElement;
     const inputPortion = document.getElementById('product-portion') as HTMLInputElement | null;
     const selectPortionPreset = document.getElementById('product-portion-preset') as HTMLSelectElement | null;
+    const inputFlavors = document.getElementById('product-flavors') as HTMLInputElement | null;
     const inputPrice = document.getElementById('product-price') as HTMLInputElement;
     const inputDesc = document.getElementById('product-description') as HTMLTextAreaElement;
     const inputUrl = document.getElementById('product-image-url') as HTMLInputElement;
@@ -815,6 +817,7 @@ class AdminDashboard {
       if (inputCat) inputCat.value = product.category_id.toString();
       if (inputPrice) inputPrice.value = product.price.toString();
       if (inputDesc) inputDesc.value = product.description || '';
+      if (inputFlavors) inputFlavors.value = product.flavors || '';
       if (inputUrl) inputUrl.value = product.image_url;
       if (previewImg) previewImg.src = product.image_url;
 
@@ -840,6 +843,7 @@ class AdminDashboard {
       if (inputName) inputName.value = '';
       if (inputPrice) inputPrice.value = '';
       if (inputPortion) inputPortion.value = '';
+      if (inputFlavors) inputFlavors.value = '';
       if (selectPortionPreset) selectPortionPreset.value = '';
       if (inputDesc) inputDesc.value = '';
       if (inputUrl) inputUrl.value = '';
@@ -855,6 +859,7 @@ class AdminDashboard {
     const inputName = (document.getElementById('product-name') as HTMLInputElement)?.value.trim();
     const inputCat = (document.getElementById('product-category') as HTMLSelectElement)?.value;
     const inputPortion = (document.getElementById('product-portion') as HTMLInputElement)?.value.trim() || '';
+    const inputFlavors = (document.getElementById('product-flavors') as HTMLInputElement)?.value.trim() || '';
     const inputPrice = (document.getElementById('product-price') as HTMLInputElement)?.value;
     const inputDesc = (document.getElementById('product-description') as HTMLTextAreaElement)?.value.trim();
     const inputUrl = (document.getElementById('product-image-url') as HTMLInputElement)?.value.trim();
@@ -871,6 +876,7 @@ class AdminDashboard {
     formData.append('price', inputPrice);
     formData.append('category_id', inputCat);
     formData.append('portion', inputPortion);
+    formData.append('flavors', inputFlavors);
     formData.append('description', inputDesc);
 
     if (inputFile) {

@@ -6,6 +6,7 @@ interface RawProduct {
   description: string;
   price: number;
   portion?: string;
+  flavors?: string;
   category_id: number;
   category_name?: string;
   category_slug?: string;
@@ -20,6 +21,7 @@ interface ProductVariation {
   price: number;
   description: string;
   image_url: string;
+  flavors?: string;
 }
 
 interface GroupedProduct {
@@ -31,6 +33,7 @@ interface GroupedProduct {
   image_url: string;
   minPrice: number;
   maxPrice: number;
+  flavorsList: string[];
   variations: ProductVariation[];
 }
 
@@ -39,6 +42,7 @@ interface CartItem {
   name: string;
   baseName: string;
   variationName: string;
+  flavor?: string;
   price: number;
   quantity: number;
 }
@@ -65,7 +69,7 @@ class CardapioApp {
   private paymentSelect = document.getElementById("payment-method") as HTMLSelectElement | null;
   private dateSpan = document.getElementById("date-span") as HTMLElement | null;
 
-  // Variation Modal Elements
+  // Variation & Flavor Modal Elements
   private varModal = document.getElementById("variation-modal") as HTMLElement;
   private varModalImg = document.getElementById("var-modal-img") as HTMLImageElement;
   private varModalTitle = document.getElementById("var-modal-title") as HTMLElement;
@@ -73,7 +77,12 @@ class CardapioApp {
   private varModalCatBadge = document.getElementById("var-modal-cat-badge") as HTMLElement;
   private varModalCartNotice = document.getElementById("var-modal-cart-notice") as HTMLElement;
   private varModalCartNoticeText = document.getElementById("var-modal-cart-notice-text") as HTMLElement;
+  private varPortionsSection = document.getElementById("var-portions-section") as HTMLElement | null;
+  private varPortionsLabel = document.getElementById("var-portions-label") as HTMLElement | null;
   private varOptionsContainer = document.getElementById("var-options-container") as HTMLElement;
+  private varFlavorsSection = document.getElementById("var-flavors-section") as HTMLElement | null;
+  private varFlavorsLabel = document.getElementById("var-flavors-label") as HTMLElement | null;
+  private varFlavorsContainer = document.getElementById("var-flavors-container") as HTMLElement | null;
   private varQtyDisplay = document.getElementById("var-qty-display") as HTMLElement;
   private varModalTotalDisplay = document.getElementById("var-modal-total-display") as HTMLElement;
   private varQtyDecBtn = document.getElementById("var-qty-dec") as HTMLButtonElement;
@@ -85,6 +94,7 @@ class CardapioApp {
   // Current Variation Modal State
   private currentModalProduct: GroupedProduct | null = null;
   private currentSelectedVariation: ProductVariation | null = null;
+  private currentSelectedFlavor: string | null = null;
   private currentModalQty: number = 1;
 
   constructor() {
@@ -175,13 +185,15 @@ class CardapioApp {
         const removeBtn = target.closest(".remove-from-cart-btn") as HTMLElement;
         if (removeBtn) {
           const id = Number(removeBtn.getAttribute("data-id"));
-          this.removeItemCart(id);
+          const flavor = removeBtn.getAttribute("data-flavor") || null;
+          this.removeItemCart(id, flavor);
         }
 
         const addQtyBtn = target.closest(".increase-qty-btn") as HTMLElement;
         if (addQtyBtn) {
           const id = Number(addQtyBtn.getAttribute("data-id"));
-          this.increaseItemQty(id);
+          const flavor = addQtyBtn.getAttribute("data-flavor") || null;
+          this.increaseItemQty(id, flavor);
         }
       });
     }
@@ -216,7 +228,8 @@ class CardapioApp {
           this.currentModalProduct.baseName,
           this.currentSelectedVariation.variationName,
           this.currentSelectedVariation.price,
-          this.currentModalQty
+          this.currentModalQty,
+          this.currentSelectedFlavor
         );
         this.closeVariationModal();
       }
@@ -237,6 +250,7 @@ class CardapioApp {
     }
     this.currentModalProduct = null;
     this.currentSelectedVariation = null;
+    this.currentSelectedFlavor = null;
   }
 
   private async fetchProducts(): Promise<void> {
@@ -292,6 +306,14 @@ class CardapioApp {
 
       const key = `${prod.category_id}__${baseName.toLowerCase()}`;
 
+      // Parse flavors (separados por vírgula)
+      const prodFlavors: string[] = [];
+      if (prod.flavors && prod.flavors.trim() !== '') {
+        prod.flavors.split(',').map(f => f.trim()).filter(Boolean).forEach(f => {
+          if (!prodFlavors.includes(f)) prodFlavors.push(f);
+        });
+      }
+
       if (!map.has(key)) {
         map.set(key, {
           baseName,
@@ -302,18 +324,24 @@ class CardapioApp {
           image_url: prod.image_url,
           minPrice: prod.price,
           maxPrice: prod.price,
+          flavorsList: [...prodFlavors],
           variations: []
         });
       }
 
       const group = map.get(key)!;
+      prodFlavors.forEach(f => {
+        if (!group.flavorsList.includes(f)) group.flavorsList.push(f);
+      });
+
       group.variations.push({
         id: prod.id,
         variationName,
         fullName: prod.name,
         price: prod.price,
         description: prod.description,
-        image_url: prod.image_url
+        image_url: prod.image_url,
+        flavors: prod.flavors
       });
 
       if (prod.price < group.minPrice) group.minPrice = prod.price;
@@ -396,6 +424,8 @@ class CardapioApp {
 
   private renderProductCard(product: GroupedProduct): string {
     const hasMultipleVariations = product.variations.length > 1;
+    const hasFlavors = Boolean(product.flavorsList && product.flavorsList.length > 0);
+    const requiresModal = hasMultipleVariations || hasFlavors;
 
     // Calcular quantidade deste prato no carrinho
     const itemsInCartForThisGroup = this.cart.filter(item => 
@@ -419,35 +449,53 @@ class CardapioApp {
     let cartBadgeHtml = "";
     if (totalQtyInCart > 0) {
       const breakdownText = itemsInCartForThisGroup
-        .map(i => `${i.quantity}x ${i.variationName !== "Padrão" ? i.variationName : ""}`)
+        .map(i => {
+          const detail = [];
+          if (i.variationName !== "Padrão") detail.push(i.variationName);
+          if (i.flavor) detail.push(i.flavor);
+          return `${i.quantity}x ${detail.join(" - ")}`;
+        })
         .join(", ");
 
       cartBadgeHtml = `
         <div class="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-[11px] font-black px-2.5 py-0.5 rounded-full mt-1.5 shadow-xs">
           <i class="fa fa-check-circle text-emerald-600"></i>
           <span>${totalQtyInCart} na cesta</span>
-          ${hasMultipleVariations ? `<span class="font-medium text-emerald-700">(${breakdownText})</span>` : ""}
+          ${breakdownText ? `<span class="font-medium text-emerald-700">(${breakdownText})</span>` : ""}
         </div>
       `;
     }
 
     // Botão de Ação
     let actionButtonHtml = "";
-    if (hasMultipleVariations) {
+    if (requiresModal) {
+      let btnLabel = "Escolher Opções";
+      let btnIcon = "fa-sliders";
+      if (hasMultipleVariations && hasFlavors) {
+        btnLabel = "Escolher Opções";
+        btnIcon = "fa-sliders";
+      } else if (hasMultipleVariations) {
+        btnLabel = "Escolher Porção";
+        btnIcon = "fa-sliders";
+      } else if (hasFlavors) {
+        btnLabel = "Escolher Sabor";
+        btnIcon = "fa-utensils";
+      }
+
       actionButtonHtml = `
         <button 
           class="btn-open-variation bg-[#b45309] hover:bg-[#92400e] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
           data-base-name="${product.baseName}"
           data-category-id="${product.category_id}"
         >
-          <span>Escolher Porção</span>
-          <i class="fa fa-sliders text-xs"></i>
+          <span>${btnLabel}</span>
+          <i class="fa ${btnIcon} text-xs"></i>
         </button>
       `;
     } else {
       const singleVar = product.variations[0];
       if (totalQtyInCart > 0) {
-        // Se já está no carrinho e tem 1 variação, dá controle direto de diminuir e aumentar no próprio card
+        // Se já está no carrinho e tem 1 variação sem sabores, dá controle direto no card
         actionButtonHtml = `
           <div class="flex items-center border border-amber-400 rounded-xl overflow-hidden bg-white shadow-sm">
             <button 
@@ -505,13 +553,21 @@ class CardapioApp {
             <p class="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
               ${product.description || 'Preparado com ingredientes selecionados e amor artesanal.'}
             </p>
+            ${hasFlavors ? `
+              <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+                  <i class="fa fa-utensils text-[9px] text-[#b45309]"></i>
+                  <span>${product.flavorsList.length} opções: ${product.flavorsList.join(', ')}</span>
+                </span>
+              </div>
+            ` : ''}
             ${cartBadgeHtml}
           </div>
 
           <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-amber-50">
             <div>
               <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                ${hasMultipleVariations ? 'Opções de Peso/Qtd' : 'Preço'}
+                ${hasMultipleVariations ? 'Opções de Peso/Qtd' : (hasFlavors ? 'Opções de Sabores' : 'Preço')}
               </span>
               <span class="font-extrabold text-base md:text-lg text-[#b45309] leading-tight">
                 ${priceText}
@@ -573,12 +629,13 @@ class CardapioApp {
   }
 
   /**
-   * Abre o Modal de Variações de Porção / Peso
+   * Abre o Modal de Variações de Porção / Peso / Sabores
    */
   private openVariationModal(product: GroupedProduct): void {
     this.currentModalProduct = product;
     this.currentModalQty = 1;
     this.currentSelectedVariation = product.variations[0]; // seleciona o primeiro por padrão
+    this.currentSelectedFlavor = product.flavorsList && product.flavorsList.length > 0 ? product.flavorsList[0] : null;
 
     if (this.varModalImg) this.varModalImg.src = product.image_url;
     if (this.varModalTitle) this.varModalTitle.textContent = product.baseName;
@@ -590,7 +647,12 @@ class CardapioApp {
       product.variations.some(v => v.id === item.id)
     );
     if (itemsInCartForThisGroup.length > 0) {
-      const summary = itemsInCartForThisGroup.map(i => `${i.quantity}x ${i.variationName}`).join(", ");
+      const summary = itemsInCartForThisGroup.map(i => {
+        const details = [];
+        if (i.variationName !== "Padrão") details.push(i.variationName);
+        if (i.flavor) details.push(i.flavor);
+        return `${i.quantity}x ${details.join(" - ")}`;
+      }).join(", ");
       if (this.varModalCartNoticeText) {
         this.varModalCartNoticeText.innerHTML = `Você já possui <strong>${summary}</strong> adicionado na sua cesta.`;
       }
@@ -599,8 +661,37 @@ class CardapioApp {
       this.varModalCartNotice?.classList.add("hidden");
     }
 
+    const hasMultipleVariations = product.variations.length > 1;
+    const hasFlavors = Boolean(product.flavorsList && product.flavorsList.length > 0);
+
+    // Ajustar visibilidade e títulos das seções
+    if (hasMultipleVariations && hasFlavors) {
+      if (this.varPortionsSection) this.varPortionsSection.classList.remove("hidden");
+      if (this.varPortionsLabel) this.varPortionsLabel.textContent = "1. Selecione a porção / tamanho:";
+      if (this.varFlavorsSection) this.varFlavorsSection.classList.remove("hidden");
+      if (this.varFlavorsLabel) this.varFlavorsLabel.textContent = "2. Selecione o sabor / recheio:";
+    } else if (hasMultipleVariations) {
+      if (this.varPortionsSection) this.varPortionsSection.classList.remove("hidden");
+      if (this.varPortionsLabel) this.varPortionsLabel.textContent = "Selecione a porção / tamanho:";
+      if (this.varFlavorsSection) this.varFlavorsSection.classList.add("hidden");
+    } else if (hasFlavors) {
+      if (this.varPortionsSection) this.varPortionsSection.classList.add("hidden");
+      if (this.varFlavorsSection) this.varFlavorsSection.classList.remove("hidden");
+      if (this.varFlavorsLabel) this.varFlavorsLabel.textContent = "Selecione o sabor / recheio:";
+    } else {
+      if (this.varPortionsSection) this.varPortionsSection.classList.add("hidden");
+      if (this.varFlavorsSection) this.varFlavorsSection.classList.add("hidden");
+    }
+
     // Renderizar Opções de Variação (Pills com Radio)
-    this.renderVariationOptions();
+    if (hasMultipleVariations) {
+      this.renderVariationOptions();
+    }
+    // Renderizar Opções de Sabor
+    if (hasFlavors) {
+      this.renderFlavorOptions();
+    }
+
     this.updateModalCalculation();
 
     // Abrir Modal
@@ -661,6 +752,56 @@ class CardapioApp {
     });
   }
 
+  private renderFlavorOptions(): void {
+    if (!this.varFlavorsContainer || !this.currentModalProduct) return;
+
+    const flavors = this.currentModalProduct.flavorsList;
+    if (!flavors || flavors.length === 0) {
+      this.varFlavorsContainer.innerHTML = "";
+      return;
+    }
+
+    this.varFlavorsContainer.innerHTML = flavors.map(flavor => {
+      const isSelected = this.currentSelectedFlavor === flavor;
+
+      // Verificar se esse sabor específico já está no carrinho
+      const cartItem = this.cart.find(i => 
+        this.currentModalProduct!.variations.some(v => v.id === i.id) && i.flavor === flavor
+      );
+      const inCartNotice = cartItem ? `<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">${cartItem.quantity} na cesta</span>` : '';
+
+      return `
+        <label 
+          class="flavor-option-card flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-[#b45309] bg-amber-50/70 shadow-xs ring-1 ring-[#b45309]' : 'border-gray-200 hover:border-amber-300 bg-white'}"
+          data-flavor="${flavor}"
+        >
+          <div class="flex items-center gap-2.5">
+            <input 
+              type="radio" 
+              name="product-flavor-choice" 
+              value="${flavor}" 
+              ${isSelected ? 'checked' : ''} 
+              class="w-4 h-4 text-[#b45309] focus:ring-[#b45309]"
+            />
+            <span class="font-bold text-xs md:text-sm text-[#2a1d17]">${flavor}</span>
+          </div>
+          ${inCartNotice}
+        </label>
+      `;
+    }).join("");
+
+    // Adicionar eventos de clique nos cards de sabor
+    this.varFlavorsContainer.querySelectorAll(".flavor-option-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const flavor = card.getAttribute("data-flavor");
+        if (flavor) {
+          this.currentSelectedFlavor = flavor;
+          this.renderFlavorOptions();
+        }
+      });
+    });
+  }
+
   private updateModalCalculation(): void {
     if (this.varQtyDisplay) this.varQtyDisplay.textContent = this.currentModalQty.toString();
 
@@ -676,14 +817,19 @@ class CardapioApp {
   /**
    * Adiciona o produto ao carrinho e aciona a NOTIFICAÇÃO NO CANTO INFERIOR DIREITO
    */
-  private addToCart(id: number, baseName: string, variationName: string, price: number, quantity: number = 1): void {
-    const existing = this.cart.find(item => item.id === id);
+  private addToCart(id: number, baseName: string, variationName: string, price: number, quantity: number = 1, flavor: string | null = null): void {
+    const cleanFlavor = flavor && flavor.trim() !== "" ? flavor.trim() : null;
+    const existing = this.cart.find(item => item.id === id && (item.flavor || null) === cleanFlavor);
 
     if (existing) {
       existing.quantity += quantity;
     } else {
-      const displayName = variationName && variationName !== "Padrão" 
-        ? `${baseName} (${variationName})` 
+      const details: string[] = [];
+      if (variationName && variationName !== "Padrão") details.push(variationName);
+      if (cleanFlavor) details.push(cleanFlavor);
+
+      const displayName = details.length > 0 
+        ? `${baseName} (${details.join(" - ")})` 
         : baseName;
 
       this.cart.push({
@@ -691,6 +837,7 @@ class CardapioApp {
         name: displayName,
         baseName,
         variationName,
+        flavor: cleanFlavor || undefined,
         price,
         quantity
       });
@@ -701,13 +848,15 @@ class CardapioApp {
     this.renderMenu(); // Atualiza os badges de quantidade nos cards em tempo real!
 
     // NOTIFICAÇÃO NO CANTO INFERIOR DIREITO (gravity: bottom, position: right)
-    this.showBottomRightNotification(baseName, variationName, quantity);
+    this.showBottomRightNotification(baseName, variationName, quantity, cleanFlavor);
   }
 
-  private showBottomRightNotification(baseName: string, variationName: string, quantity: number): void {
-    const itemLabel = variationName && variationName !== "Padrão" 
-      ? `<strong>${quantity}x ${baseName}</strong> (${variationName})` 
-      : `<strong>${quantity}x ${baseName}</strong>`;
+  private showBottomRightNotification(baseName: string, variationName: string, quantity: number, flavor: string | null = null): void {
+    const details: string[] = [];
+    if (variationName && variationName !== "Padrão") details.push(variationName);
+    if (flavor) details.push(flavor);
+    const detailStr = details.length > 0 ? ` (${details.join(" - ")})` : "";
+    const itemLabel = `<strong>${quantity}x ${baseName}</strong>${detailStr}`;
 
     if (typeof Toastify !== "undefined") {
       Toastify({
@@ -771,6 +920,7 @@ class CardapioApp {
               <button 
                 class="remove-from-cart-btn px-2.5 py-1 text-gray-700 hover:bg-amber-100 transition text-sm font-black" 
                 data-id="${item.id}"
+                data-flavor="${item.flavor || ''}"
                 title="Diminuir"
               >
                 -
@@ -779,6 +929,7 @@ class CardapioApp {
               <button 
                 class="increase-qty-btn px-2.5 py-1 text-gray-700 hover:bg-amber-100 transition text-sm font-black" 
                 data-id="${item.id}"
+                data-flavor="${item.flavor || ''}"
                 title="Aumentar"
               >
                 +
@@ -798,8 +949,9 @@ class CardapioApp {
     this.cartCounter.textContent = totalQuantity.toString();
   }
 
-  private removeItemCart(id: number): void {
-    const index = this.cart.findIndex(item => item.id === id);
+  private removeItemCart(id: number, flavor?: string | null): void {
+    const cleanFlavor = flavor && flavor.trim() !== "" ? flavor.trim() : null;
+    const index = this.cart.findIndex(item => item.id === id && (item.flavor || null) === cleanFlavor);
     if (index !== -1) {
       const item = this.cart[index];
       if (item.quantity > 1) {
@@ -813,8 +965,9 @@ class CardapioApp {
     }
   }
 
-  private increaseItemQty(id: number): void {
-    const item = this.cart.find(i => i.id === id);
+  private increaseItemQty(id: number, flavor?: string | null): void {
+    const cleanFlavor = flavor && flavor.trim() !== "" ? flavor.trim() : null;
+    const item = this.cart.find(i => i.id === id && (i.flavor || null) === cleanFlavor);
     if (item) {
       item.quantity += 1;
       this.saveCartToStorage();
