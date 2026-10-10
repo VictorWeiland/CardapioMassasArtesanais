@@ -1,0 +1,35 @@
+{
+  "name": "cardapio",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:css": "tailwindcss -i ./styles/style.css -o ./styles/output.css --watch",
+    "build:css": "tailwindcss -i ./styles/style.css -o ./styles/output.css --minify",
+    "build:client": "esbuild src/client/cardapio.ts --bundle --minify --outfile=public/js/cardapio.js && esbuild src/client/admin.ts --bundle --minify --outfile=public/js/admin.js",
+    "build:server": "tsc",
+    "build": "npm run build:css && npm run build:client && npm run build:server",
+    "start": "node dist/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.4.0"
+  }
+}

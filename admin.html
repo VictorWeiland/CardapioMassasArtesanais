@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Padeiro - Painel Administrativo Restrito</title>
+
+  <!-- Tailwind CSS & Font Awesome -->
+  <link rel="stylesheet" href="/styles/output.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Toastify CSS -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f8f6f2;
+    }
+    .font-serif-title {
+      font-family: 'Playfair Display', serif;
+    }
+    .tab-btn.active {
+      background-color: #b45309;
+      color: #ffffff;
+      box-shadow: 0 4px 6px -1px rgba(180, 83, 9, 0.25);
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-gray-800 antialiased flex flex-col">
+
+  <!-- ========================================== -->
+  <!-- TELA DE LOGIN PRIVADA (ACESSO RESTRITO)    -->
+  <!-- ========================================== -->
+  <div id="view-login" class="min-h-screen flex items-center justify-center p-4 bg-[#1a120e] relative" style="background-image: linear-gradient(rgba(18, 12, 9, 0.88), rgba(26, 18, 14, 0.95)), url('/assets/padeiro/wood_bg.png'); background-size: cover; background-position: center;">
+    <div class="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-amber-900/20 relative z-10">
+      <div class="text-center mb-6">
+        <img src="/assets/padeiro/logo.png" alt="Logo Padeiro" class="w-24 h-24 mx-auto rounded-full border-4 border-amber-500/80 shadow-lg object-cover bg-stone-900">
+        <span class="inline-block mt-3 bg-amber-100 text-amber-900 text-[11px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full border border-amber-300">
+          Acesso Restrito
+        </span>
+        <h2 class="text-2xl font-black text-[#2a1d17] mt-1 font-serif-title">Painel de Gestão</h2>
+        <p class="text-xs text-gray-500 mt-1">Informe suas credenciais para gerenciar produtos, pedidos e relatórios.</p>
+      </div>
+
+      <!-- Alerta de Erro -->
+      <div id="login-error-alert" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 font-semibold">
+        <i class="fa fa-circle-exclamation text-red-500 text-sm"></i>
+        <span id="login-error-text">Usuário ou senha incorretos.</span>
+      </div>
+
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5" for="login-username">
+            Usuário
+          </label>
+          <div class="relative">
+            <i class="fa fa-user absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+            <input 
+              type="text" 
+              id="login-username" 
+              required 
+              placeholder="admin" 
+              class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#d97706] transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5" for="login-password">
+            Senha
+          </label>
+          <div class="relative">
+            <i class="fa fa-lock absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+            <input 
+              type="password" 
+              id="login-password" 
+              required 
+              placeholder="••••••••" 
+              class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#d97706] transition"
+            />
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          id="btn-submit-login" 
+          class="w-full py-3 bg-[#b45309] hover:bg-[#92400e] text-white font-black rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2 mt-2 active:scale-98"
+        >
+          <i class="fa fa-arrow-right-to-bracket"></i>
+          <span>Entrar no Painel</span>
+        </button>
+      </form>
+
+      <div class="mt-6 text-center pt-4 border-t border-gray-100">
+        <a href="/" class="text-xs text-gray-400 hover:text-gray-600 transition flex items-center justify-center gap-1.5">
+          <i class="fa fa-arrow-left text-[10px]"></i>
+          <span>Voltar ao Cardápio Público</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- PAINEL DASHBOARD (EXIBIDO APÓS LOGIN)      -->
+  <!-- ========================================== -->
+  <div id="view-dashboard" class="hidden flex-1 flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-[#1f1611] text-white shadow-md sticky top-0 z-50 border-b border-amber-900/30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <!-- Brand -->
+          <div class="flex items-center gap-3">
+            <img src="/assets/padeiro/logo.png" alt="Padeiro" class="w-10 h-10 rounded-full border-2 border-amber-500 shadow-sm bg-stone-900 object-cover">
+            <div>
+              <h1 class="font-extrabold text-base md:text-lg tracking-wide leading-tight flex items-center gap-2 font-serif-title">
+                <span>PADEIRO</span>
+                <span class="text-[10px] bg-amber-600 text-white font-bold px-2 py-0.5 rounded uppercase tracking-wider font-sans">Admin</span>
+              </h1>
+              <p class="text-[11px] text-amber-200/80">Massas & Pães Artesanais</p>
+            </div>
+          </div>
+
+          <!-- Ações do Administrador -->
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs text-amber-200/80 hidden md:inline-flex items-center gap-1.5 mr-2">
+              <i class="fa fa-circle-user text-amber-400"></i>
+              <span id="admin-user-display" class="font-bold">admin</span>
+            </span>
+
+            <button id="btn-open-change-password" class="text-xs bg-stone-800 hover:bg-stone-700 text-gray-200 px-3 py-2 rounded-xl font-medium transition flex items-center gap-1.5 border border-stone-700" title="Trocar Senha">
+              <i class="fa fa-key text-xs text-amber-400"></i>
+              <span class="hidden sm:inline">Trocar Senha</span>
+            </button>
+
+            <a href="/" target="_blank" class="text-xs bg-stone-800 hover:bg-stone-700 text-gray-200 px-3 py-2 rounded-xl font-medium transition flex items-center gap-1.5 border border-stone-700" title="Abrir Cardápio">
+              <i class="fa fa-external-link-alt text-xs"></i>
+              <span class="hidden sm:inline">Ver Cardápio</span>
+            </a>
+
+            <button id="btn-logout" class="text-xs bg-red-900/80 hover:bg-red-800 text-white px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 border border-red-700 shadow-xs" title="Sair do Painel">
+              <i class="fa fa-sign-out-alt text-xs"></i>
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Sub Navigation Tabs Bar -->
+    <div class="bg-white border-b border-gray-200 shadow-xs sticky top-16 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex space-x-2 py-3 overflow-x-auto no-scrollbar">
+          <button id="tab-btn-products" class="tab-btn active px-4 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-amber-50 flex items-center gap-2 transition whitespace-nowrap">
+            <i class="fa fa-utensils"></i>
+            <span>Produtos do Cardápio</span>
+          </button>
+
+          <button id="tab-btn-orders" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-amber-50 flex items-center gap-2 transition whitespace-nowrap">
+            <i class="fa fa-clipboard-list"></i>
+            <span>Pedidos e Vendas</span>
+            <span id="badge-pending-orders" class="ml-1 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-bold hidden">0</span>
+          </button>
+
+          <button id="tab-btn-reports" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-amber-50 flex items-center gap-2 transition whitespace-nowrap">
+            <i class="fa fa-chart-line"></i>
+            <span>Relatórios de Vendas</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      <!-- ========================================== -->
+      <!-- ABA 1: PRODUTOS (CRUD)                     -->
+      <!-- ========================================== -->
+      <section id="section-products" class="tab-section block">
+        <!-- Header da seção -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2 font-serif-title">
+              <span>Gerenciar Produtos</span>
+              <span id="products-count-badge" class="text-xs bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded-full border border-amber-200">0 itens</span>
+            </h2>
+            <p class="text-sm text-gray-500">Crie, edite fotos, altere preços e gerencie o cardápio em tempo real.</p>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <button id="btn-open-manage-categories" type="button" class="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2 text-sm justify-center">
+              <i class="fa fa-tags text-amber-700"></i>
+              <span>Categorias</span>
+            </button>
+            <button id="btn-open-create-product" class="bg-[#b45309] hover:bg-[#92400e] active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2 text-sm justify-center">
+              <i class="fa fa-plus"></i>
+              <span>Novo Produto</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros e Busca -->
+        <div class="bg-white p-4 rounded-2xl shadow-xs border border-gray-200 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div class="relative w-full md:w-80">
+            <i class="fa fa-search absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+            <input 
+              type="text" 
+              id="search-product-input" 
+              placeholder="Buscar massa, pão ou salgado..." 
+              class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition"
+            />
+          </div>
+
+          <div class="flex items-center gap-3 w-full md:w-auto">
+            <span class="text-xs font-semibold text-gray-500 uppercase">Categoria:</span>
+            <select id="filter-category-select" class="text-sm border border-gray-300 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-[#d97706] outline-none">
+              <option value="">Todas as Categorias</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabela de Produtos -->
+        <div class="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-left">
+              <thead class="bg-amber-50/50 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <tr>
+                  <th class="px-6 py-3.5">Foto</th>
+                  <th class="px-6 py-3.5">Produto</th>
+                  <th class="px-6 py-3.5">Categoria</th>
+                  <th class="px-6 py-3.5">Preço</th>
+                  <th class="px-6 py-3.5">Status</th>
+                  <th class="px-6 py-3.5 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body" class="divide-y divide-gray-100 text-sm">
+                <tr>
+                  <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                    <i class="fa fa-spinner fa-spin text-2xl text-amber-500 mb-2"></i>
+                    <p>Carregando produtos...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ABA 2: PEDIDOS E VENDAS                   -->
+      <!-- ========================================== -->
+      <section id="section-orders" class="tab-section hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2 font-serif-title">
+              <span>Fluxo de Pedidos</span>
+            </h2>
+            <p class="text-sm text-gray-500">Acompanhe encomendas e vendas registradas no balcão.</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button id="btn-refresh-orders" class="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 font-semibold px-3.5 py-2 rounded-xl text-sm transition flex items-center gap-2">
+              <i class="fa fa-sync-alt"></i>
+              <span>Atualizar</span>
+            </button>
+            <button id="btn-open-create-order" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-xs">
+              <i class="fa fa-cash-register"></i>
+              <span>Registrar Venda Balcão</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros de Pedidos -->
+        <div class="bg-white p-4 rounded-2xl shadow-xs border border-gray-200 mb-6 flex flex-wrap gap-4 items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-gray-500 uppercase">Status:</span>
+            <div class="flex gap-1.5 overflow-x-auto" id="order-status-filters">
+              <button data-status="Todos" class="order-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-stone-900 text-white">Todos</button>
+              <button data-status="Pendente" class="order-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Pendentes</button>
+              <button data-status="Preparando" class="order-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Preparando</button>
+              <button data-status="Concluído" class="order-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Concluídos</button>
+              <button data-status="Cancelado" class="order-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">Cancelados</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Pedidos -->
+        <div id="orders-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Carregado dinamicamente -->
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ABA 3: RELATÓRIOS DE VENDAS               -->
+      <!-- ========================================== -->
+      <section id="section-reports" class="tab-section hidden">
+        <div id="print-area">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2 font-serif-title">
+                <span>Relatório Gerencial de Vendas</span>
+              </h2>
+              <p class="text-sm text-gray-500">Métricas financeiras, ticket médio e produtos líderes em vendas.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 no-print">
+              <select id="reports-period-select" class="text-sm font-semibold border border-gray-300 rounded-xl px-4 py-2 bg-white focus:ring-2 focus:ring-[#d97706] outline-none shadow-xs">
+                <option value="today">Vendas de Hoje</option>
+                <option value="7days">Últimos 7 dias</option>
+                <option value="30days" selected>Últimos 30 dias</option>
+                <option value="month">Este Mês</option>
+                <option value="all">Todo o Histórico</option>
+              </select>
+
+              <button id="btn-print-reports" class="bg-stone-900 hover:bg-stone-800 text-white font-bold px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-xs">
+                <i class="fa fa-print"></i>
+                <span>Imprimir / PDF</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI Cards Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                <i class="fa fa-wallet"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Faturamento Total</p>
+                <h3 id="kpi-total-revenue" class="text-2xl font-black text-gray-900 mt-0.5">R$ 0,00</h3>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                <i class="fa fa-check-double"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pedidos Concluídos</p>
+                <h3 id="kpi-completed-orders" class="text-2xl font-black text-gray-900 mt-0.5">0</h3>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                <i class="fa fa-calculator"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ticket Médio</p>
+                <h3 id="kpi-average-ticket" class="text-2xl font-black text-gray-900 mt-0.5">R$ 0,00</h3>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                <i class="fa fa-clock"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pendentes / Preparo</p>
+                <h3 id="kpi-pending-orders" class="text-2xl font-black text-gray-900 mt-0.5">0</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção de Gráficos -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-200 lg:col-span-2">
+              <h4 class="font-bold text-gray-800 text-base flex items-center gap-2 mb-4 font-serif-title">
+                <i class="fa fa-chart-area text-amber-600"></i>
+                <span>Evolução Diária do Faturamento</span>
+              </h4>
+              <div class="h-64 relative">
+                <canvas id="chart-sales-timeline"></canvas>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-gray-200">
+              <h4 class="font-bold text-gray-800 text-base flex items-center gap-2 mb-4 font-serif-title">
+                <i class="fa fa-pie-chart text-amber-600"></i>
+                <span>Vendas por Categoria</span>
+              </h4>
+              <div class="h-64 relative flex items-center justify-center">
+                <canvas id="chart-categories-pie"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela de Produtos Mais Vendidos -->
+          <div class="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden mb-8">
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h4 class="font-bold text-gray-800 text-base flex items-center gap-2 font-serif-title">
+                <i class="fa fa-trophy text-amber-500"></i>
+                <span>Ranking dos Produtos Mais Vendidos</span>
+              </h4>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 text-left">
+                <thead class="bg-amber-50/50 text-xs font-bold text-gray-500 uppercase">
+                  <tr>
+                    <th class="px-6 py-3.5">#</th>
+                    <th class="px-6 py-3.5">Produto</th>
+                    <th class="px-6 py-3.5">Categoria</th>
+                    <th class="px-6 py-3.5 text-center">Qtd. Vendida</th>
+                    <th class="px-6 py-3.5 text-right">Faturamento Total</th>
+                  </tr>
+                </thead>
+                <tbody id="top-products-table-body" class="divide-y divide-gray-100 text-sm">
+                  <!-- Populado dinamicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CRIAR / EDITAR PRODUTO (COM FOTO)  -->
+  <!-- ========================================== -->
+  <div id="modal-product" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+        <h3 id="modal-product-title" class="font-bold text-xl text-gray-900 flex items-center gap-2 font-serif-title">
+          <i class="fa fa-utensils text-[#b45309]"></i>
+          <span>Cadastrar Novo Produto</span>
+        </h3>
+        <button id="btn-close-modal-product" class="text-gray-400 hover:text-gray-600 transition p-1 text-lg">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <form id="form-product" class="p-6 space-y-5" enctype="multipart/form-data">
+        <input type="hidden" id="product-id" name="id">
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-name">
+            Nome do Produto *
+          </label>
+          <input 
+            type="text" 
+            id="product-name" 
+            name="name" 
+            required 
+            placeholder="Ex: Rondelli de Ricota com Espinafre (600g)" 
+            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-category">
+              Categoria *
+            </label>
+            <select 
+              id="product-category" 
+              name="category_id" 
+              required
+              class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none bg-white transition"
+            >
+              <!-- Categorias -->
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-portion-preset">
+              Porção / Tamanho
+            </label>
+            <div class="space-y-1.5">
+              <select 
+                id="product-portion-preset" 
+                class="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none bg-white transition font-medium text-gray-700"
+              >
+                <option value="">(Sem porção específica)</option>
+                <option value="300g">300g</option>
+                <option value="600g">600g</option>
+                <option value="1 kg">1 kg</option>
+                <option value="2 unidades">2 unidades</option>
+                <option value="5 unidades">5 unidades</option>
+                <option value="10 unidades">10 unidades</option>
+                <option value="20x20 cm">20x20 cm</option>
+                <option value="30x30 cm">30x30 cm</option>
+                <option value="Unidade">Unidade</option>
+                <option value="custom">Outro (digitar abaixo)</option>
+              </select>
+              <input 
+                type="text" 
+                id="product-portion" 
+                name="portion" 
+                placeholder="Ex: 600g, 5 unidades..." 
+                class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-price">
+              Preço (R$) *
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-2.5 text-sm font-semibold text-gray-400">R$</span>
+              <input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                id="product-price" 
+                name="price" 
+                required 
+                placeholder="0.00" 
+                class="w-full pl-10 pr-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition font-semibold"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-description">
+            Descrição dos Ingredientes / Porção
+          </label>
+          <textarea 
+            id="product-description" 
+            name="description" 
+            rows="3" 
+            placeholder="Ex: Massa fresca fina e artesanal, recheada generosamente..." 
+            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition resize-none"
+          ></textarea>
+        </div>
+
+        <!-- ESPAÇO PARA FOTO DO PRODUTO -->
+        <div class="border-2 border-dashed border-amber-200 rounded-2xl p-4 bg-amber-50/40 text-center relative group">
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+            Foto do Produto
+          </label>
+
+          <div class="flex items-center justify-center mb-3">
+            <div class="w-32 h-32 rounded-xl overflow-hidden bg-white border border-gray-200 shadow-sm flex items-center justify-center relative">
+              <img id="product-image-preview" src="/assets/padeiro/paes.png" alt="Preview" class="w-full h-full object-cover">
+            </div>
+          </div>
+
+          <div class="flex flex-col items-center justify-center gap-2">
+            <label for="product-image-file" class="cursor-pointer bg-white border border-gray-300 hover:border-amber-500 hover:text-amber-700 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-2">
+              <i class="fa fa-cloud-upload-alt text-base text-amber-600"></i>
+              <span>Escolher Foto do Computador</span>
+            </label>
+            <input type="file" id="product-image-file" name="image" accept="image/*" class="hidden">
+            <p id="product-file-name" class="text-xs text-gray-400">Nenhum novo arquivo selecionado</p>
+          </div>
+
+          <div class="mt-3 pt-3 border-t border-amber-200/60 text-left">
+            <label class="block text-[11px] font-semibold text-gray-500 mb-1" for="product-image-url">
+              Ou informe a URL / Caminho da Imagem:
+            </label>
+            <input 
+              type="text" 
+              id="product-image-url" 
+              name="image_url" 
+              placeholder="Ex: /assets/padeiro/paes.png ou https://..." 
+              class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:border-amber-500"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+          <button type="button" id="btn-cancel-modal-product" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition">
+            Cancelar
+          </button>
+          <button type="submit" id="btn-submit-product" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#b45309] hover:bg-[#92400e] shadow-xs transition flex items-center gap-2">
+            <i class="fa fa-save"></i>
+            <span>Salvar Produto</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: REGISTRAR VENDA BALCÃO             -->
+  <!-- ========================================== -->
+  <div id="modal-create-order" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-xl text-gray-900 flex items-center gap-2 font-serif-title">
+          <i class="fa fa-cash-register text-emerald-600"></i>
+          <span>Registrar Venda Balcão</span>
+        </h3>
+        <button id="btn-close-modal-order" class="text-gray-400 hover:text-gray-600 transition p-1 text-lg">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <form id="form-create-order" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+            Nome do Cliente (Opcional)
+          </label>
+          <input 
+            type="text" 
+            id="order-customer-name" 
+            placeholder="Ex: Cliente Balcão" 
+            class="w-full px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+            Forma de Pagamento
+          </label>
+          <select id="order-payment-method" class="w-full px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Cartão de Débito">Cartão de Débito</option>
+            <option value="Cartão de Crédito">Cartão de Crédito</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+            Selecionar Produtos
+          </label>
+          <div class="flex gap-2 mb-2">
+            <select id="order-select-product" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-xl outline-none bg-white">
+              <!-- Produtos carregados -->
+            </select>
+            <input type="number" id="order-product-qty" value="1" min="1" class="w-20 px-3 py-2 text-sm border border-gray-300 rounded-xl text-center outline-none">
+            <button type="button" id="btn-add-item-to-order" class="bg-stone-900 hover:bg-stone-800 text-white px-3 py-2 rounded-xl text-sm font-semibold">
+              <i class="fa fa-plus"></i>
+            </button>
+          </div>
+
+          <div id="order-items-table" class="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2 min-h-[80px]">
+            <p class="text-xs text-gray-400 text-center py-4">Nenhum produto adicionado ainda</p>
+          </div>
+
+          <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-200">
+            <span class="font-bold text-gray-700 text-sm">Total da Venda:</span>
+            <span id="order-total-display" class="font-black text-emerald-600 text-lg">R$ 0,00</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+          <button type="button" id="btn-cancel-modal-order" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition flex items-center gap-2">
+            <i class="fa fa-check"></i>
+            <span>Confirmar Venda</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ALTERAR SENHA                      -->
+  <!-- ========================================== -->
+  <div id="modal-change-password" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+      <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+        <h3 class="font-bold text-base text-gray-900 flex items-center gap-2">
+          <i class="fa fa-key text-amber-600"></i>
+          <span>Alterar Senha de Acesso</span>
+        </h3>
+        <button id="btn-close-modal-password" class="text-gray-400 hover:text-gray-600 p-1">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <form id="form-change-password" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Senha Atual</label>
+          <input type="password" id="input-current-password" required class="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#d97706]">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nova Senha (mín. 4 caracteres)</label>
+          <input type="password" id="input-new-password" required minlength="4" class="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#d97706]">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-gray-100">
+          <button type="button" id="btn-cancel-modal-password" class="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-xs font-bold bg-[#b45309] hover:bg-[#92400e] text-white rounded-xl shadow-xs">Salvar Senha</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: GERENCIAR CATEGORIAS                -->
+  <!-- ========================================== -->
+  <div id="modal-category" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="p-5 border-b border-gray-100 flex items-center justify-between bg-amber-50/50">
+        <h3 class="font-bold text-lg text-gray-900 flex items-center gap-2 font-serif-title">
+          <i class="fa fa-tags text-amber-700"></i>
+          <span>Gerenciar Categorias</span>
+        </h3>
+        <button id="btn-close-modal-category" class="text-gray-400 hover:text-gray-600 transition p-1 text-lg">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-5 overflow-y-auto">
+        <!-- Formulário para Criar Categoria -->
+        <form id="form-create-category" class="bg-amber-50/40 border border-amber-200/80 p-4 rounded-xl space-y-2.5">
+          <label for="category-name-input" class="block text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+            <i class="fa fa-plus-circle text-amber-600"></i>
+            <span>Nova Categoria</span>
+          </label>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="category-name-input" 
+              placeholder="Ex: Sobremesas, Bebidas..." 
+              required 
+              class="flex-1 px-3.5 py-2 text-sm border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#d97706] bg-white transition"
+            />
+            <button 
+              type="submit" 
+              id="btn-submit-category" 
+              class="bg-[#b45309] hover:bg-[#92400e] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-xs transition flex items-center gap-1.5 active:scale-95 shrink-0"
+            >
+              <i class="fa fa-plus"></i>
+              <span>Adicionar</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Lista de Categorias Cadastradas -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500">Categorias Cadastradas</h4>
+            <span id="categories-count-badge" class="text-xs font-semibold text-gray-400">0 categorias</span>
+          </div>
+
+          <div id="categories-modal-list" class="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white max-h-64 overflow-y-auto">
+            <!-- Populado dinamicamente -->
+            <div class="p-4 text-center text-xs text-gray-400">Carregando categorias...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+        <button type="button" id="btn-done-modal-category" class="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition">
+          Concluir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toastify JS -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <!-- Admin Script Bundle -->
+  <script src="/public/js/admin.js"></script>
+</body>
+</html>
