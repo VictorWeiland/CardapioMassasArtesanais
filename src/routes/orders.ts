@@ -77,7 +77,8 @@ router.post('/', async (req: Request, res: Response) => {
       delivery_address,
       payment_method,
       notes,
-      items
+      items,
+      status
     }: CreateOrderInput = req.body;
 
     if (!delivery_address || delivery_address.trim() === '') {
@@ -97,18 +98,21 @@ router.post('/', async (req: Request, res: Response) => {
       totalAmount += item.unit_price * item.quantity;
     }
 
+    const validStatus = status === 'Concluído' ? 'Concluído' : (status === 'Preparando' ? 'Preparando' : (status === 'Cancelado' ? 'Cancelado' : 'Pendente'));
+
     // Execute in transaction
     const tx = await db.client.transaction('write');
     let newOrderId: number;
     try {
       const orderResult = await tx.execute({
         sql: `INSERT INTO orders (customer_name, customer_phone, delivery_address, payment_method, status, total_amount, notes)
-              VALUES (?, ?, ?, ?, 'Pendente', ?, ?)`,
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
         args: [
           customer_name || 'Cliente',
           customer_phone || '',
           delivery_address.trim(),
           payment_method || 'Pix',
+          validStatus,
           totalAmount,
           notes || ''
         ]

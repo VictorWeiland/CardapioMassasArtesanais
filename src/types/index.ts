@@ -72,6 +72,7 @@ export interface CreateOrderInput {
   delivery_address: string;
   payment_method: string;
   notes?: string;
+  status?: OrderStatus;
   items: {
     product_id?: number;
     product_name: string;

@@ -156,6 +156,11 @@
               <span id="admin-user-display" class="font-bold">admin</span>
             </span>
 
+            <button id="btn-header-quick-sale" type="button" class="btn-open-counter-sale text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-xs" title="Registrar Venda no Balcão">
+              <i class="fa fa-cash-register text-xs"></i>
+              <span class="hidden sm:inline">Venda Balcão</span>
+            </button>
+
             <button id="btn-open-change-password" class="text-xs bg-stone-800 hover:bg-stone-700 text-gray-200 px-3 py-2 rounded-xl font-medium transition flex items-center gap-1.5 border border-stone-700" title="Trocar Senha">
               <i class="fa fa-key text-xs text-amber-400"></i>
               <span class="hidden sm:inline">Trocar Senha</span>
@@ -215,7 +220,7 @@
             <p class="text-sm text-gray-500">Crie, edite fotos, altere preços e gerencie o cardápio em tempo real.</p>
           </div>
 
-          <div class="flex items-center gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
             <button id="btn-open-manage-categories" type="button" class="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2 text-sm justify-center">
               <i class="fa fa-tags text-amber-700"></i>
               <span>Categorias</span>
@@ -223,6 +228,10 @@
             <button id="btn-open-create-product" class="bg-[#b45309] hover:bg-[#92400e] active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2 text-sm justify-center">
               <i class="fa fa-plus"></i>
               <span>Novo Produto</span>
+            </button>
+            <button type="button" class="btn-open-counter-sale bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2 text-sm justify-center" title="Registrar Venda Presencial no Balcão">
+              <i class="fa fa-cash-register"></i>
+              <span>Venda Balcão</span>
             </button>
           </div>
         </div>
@@ -291,7 +300,7 @@
               <i class="fa fa-sync-alt"></i>
               <span>Atualizar</span>
             </button>
-            <button id="btn-open-create-order" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-xs">
+            <button id="btn-open-create-order" class="btn-open-counter-sale bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 shadow-xs">
               <i class="fa fa-cash-register"></i>
               <span>Registrar Venda Balcão</span>
             </button>
@@ -666,15 +675,20 @@
           <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
             Selecionar Produtos
           </label>
-          <div class="flex gap-2 mb-2">
-            <select id="order-select-product" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-xl outline-none bg-white">
+          <div class="flex gap-2 mb-1.5">
+            <select id="order-select-product" class="flex-1 px-3 py-2.5 text-sm border border-gray-300 rounded-xl outline-none bg-white focus:ring-2 focus:ring-emerald-500">
               <!-- Produtos carregados -->
             </select>
-            <input type="number" id="order-product-qty" value="1" min="1" class="w-20 px-3 py-2 text-sm border border-gray-300 rounded-xl text-center outline-none">
-            <button type="button" id="btn-add-item-to-order" class="bg-stone-900 hover:bg-stone-800 text-white px-3 py-2 rounded-xl text-sm font-semibold">
+            <input type="number" id="order-product-qty" value="1" min="1" class="w-16 px-2 py-2.5 text-sm border border-gray-300 rounded-xl text-center outline-none focus:ring-2 focus:ring-emerald-500 font-bold" title="Quantidade">
+            <button type="button" id="btn-add-item-to-order" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 shadow-xs" title="Adicionar este item">
               <i class="fa fa-plus"></i>
+              <span>Adicionar</span>
             </button>
           </div>
+          <p class="text-[11px] text-gray-500 flex items-center gap-1 mb-2">
+            <i class="fa fa-info-circle text-emerald-600"></i>
+            <span>Clique em <strong>Adicionar</strong> para somar itens ou confirme a venda direto abaixo.</span>
+          </p>
 
           <div id="order-items-table" class="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2 min-h-[80px]">
             <p class="text-xs text-gray-400 text-center py-4">Nenhum produto adicionado ainda</p>

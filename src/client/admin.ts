@@ -394,24 +394,35 @@ class AdminDashboard {
 
     // Order (Counter Sale) Modal
     const modalOrder = document.getElementById('modal-create-order');
-    const btnOpenOrder = document.getElementById('btn-open-create-order');
+    const btnOpenOrders = document.querySelectorAll('.btn-open-counter-sale, #btn-open-create-order, #btn-header-quick-sale');
     const btnCloseOrder = document.getElementById('btn-close-modal-order');
     const btnCancelOrder = document.getElementById('btn-cancel-modal-order');
     const formOrder = document.getElementById('form-create-order') as HTMLFormElement | null;
     const btnAddItem = document.getElementById('btn-add-item-to-order');
 
-    btnOpenOrder?.addEventListener('click', () => {
-      this.openCounterSaleModal();
+    btnOpenOrders.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.openCounterSaleModal();
+      });
     });
 
     const closeOrderModal = () => {
-      modalOrder?.classList.add('hidden');
+      if (modalOrder) {
+        modalOrder.classList.add('hidden');
+        modalOrder.style.display = 'none';
+      }
     };
 
     btnCloseOrder?.addEventListener('click', closeOrderModal);
     btnCancelOrder?.addEventListener('click', closeOrderModal);
 
-    btnAddItem?.addEventListener('click', () => {
+    modalOrder?.addEventListener('click', (e) => {
+      if (e.target === modalOrder) closeOrderModal();
+    });
+
+    btnAddItem?.addEventListener('click', (e) => {
+      e.preventDefault();
       this.addItemToManualOrder();
     });
 
@@ -1147,8 +1158,29 @@ class AdminDashboard {
     if (!select) return;
 
     select.innerHTML = '';
-    this.products.forEach(p => {
-      select.innerHTML += `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - R$ ${p.price.toFixed(2)}</option>`;
+    const activeProducts = this.products.filter(p => p.active !== 0);
+    const prodsToRender = activeProducts.length > 0 ? activeProducts : this.products;
+
+    if (prodsToRender.length === 0) {
+      select.innerHTML = '<option value="">Nenhum produto cadastrado</option>';
+      return;
+    }
+
+    prodsToRender.forEach(p => {
+      // Se tiver porções definidas com preço (ex: 300g: 22, 600g: 42)
+      if (p.portion && p.portion.includes(',')) {
+        const parts = p.portion.split(',').map(s => s.trim()).filter(Boolean);
+        parts.forEach(part => {
+          const [label, priceStr] = part.split(':').map(s => s.trim());
+          const optPrice = priceStr ? parseFloat(priceStr.replace(',', '.')) : p.price;
+          const finalPrice = isNaN(optPrice) ? p.price : optPrice;
+          const optName = `${p.name} (${label})`;
+          select.innerHTML += `<option value="${p.id}" data-name="${optName}" data-price="${finalPrice}">${optName} - R$ ${finalPrice.toFixed(2)}</option>`;
+        });
+      } else {
+        const optName = p.portion && !p.name.includes(p.portion) ? `${p.name} (${p.portion})` : p.name;
+        select.innerHTML += `<option value="${p.id}" data-name="${optName}" data-price="${p.price}">${optName} - R$ ${p.price.toFixed(2)}</option>`;
+      }
     });
   }
 
@@ -1157,35 +1189,43 @@ class AdminDashboard {
     if (!modal) return;
 
     this.manualOrderItems = [];
-    this.renderManualOrderItems();
     this.updateProductsForOrderSelect();
+    this.renderManualOrderItems();
 
     const customerInput = document.getElementById('order-customer-name') as HTMLInputElement | null;
     if (customerInput) customerInput.value = 'Cliente Balcão';
 
+    const qtyInput = document.getElementById('order-product-qty') as HTMLInputElement | null;
+    if (qtyInput) qtyInput.value = '1';
+
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
   }
 
-  private addItemToManualOrder(): void {
+  private addItemToManualOrder(): boolean {
     const select = document.getElementById('order-select-product') as HTMLSelectElement | null;
     const qtyInput = document.getElementById('order-product-qty') as HTMLInputElement | null;
 
-    if (!select || !qtyInput) return;
+    if (!select || !qtyInput || select.selectedIndex < 0 || select.options.length === 0) return false;
 
-    const productId = Number(select.value);
-    const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
     const selectedOption = select.options[select.selectedIndex];
-    const name = selectedOption.getAttribute('data-name') || '';
+    if (!selectedOption || !selectedOption.value) return false;
+
+    const productId = Number(selectedOption.value);
+    const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+    const name = selectedOption.getAttribute('data-name') || selectedOption.text;
     const price = parseFloat(selectedOption.getAttribute('data-price') || '0');
 
-    const existing = this.manualOrderItems.find(i => i.productId === productId);
+    const existing = this.manualOrderItems.find(i => i.name === name);
     if (existing) {
       existing.quantity += qty;
     } else {
       this.manualOrderItems.push({ productId, name, price, quantity: qty });
     }
 
+    qtyInput.value = '1';
     this.renderManualOrderItems();
+    return true;
   }
 
   private renderManualOrderItems(): void {
@@ -1204,10 +1244,10 @@ class AdminDashboard {
         return `
           <div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-200 last:border-0">
             <div>
-              <strong>${item.quantity}x</strong> ${item.name}
-              <span class="text-gray-400 ml-1">(R$ ${subtotal.toFixed(2)})</span>
+              <strong class="text-gray-900">${item.quantity}x</strong> <span class="font-medium text-gray-800">${item.name}</span>
+              <span class="text-gray-400 ml-1 font-semibold">(R$ ${subtotal.toFixed(2)})</span>
             </div>
-            <button type="button" class="btn-remove-manual-item text-red-500 hover:text-red-700" data-index="${index}">
+            <button type="button" class="btn-remove-manual-item text-red-500 hover:text-red-700 p-1" data-index="${index}" title="Remover item">
               <i class="fa fa-times"></i>
             </button>
           </div>
@@ -1215,7 +1255,8 @@ class AdminDashboard {
       }).join('');
 
       container.querySelectorAll('.btn-remove-manual-item').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
           const idx = Number(btn.getAttribute('data-index'));
           this.manualOrderItems.splice(idx, 1);
           this.renderManualOrderItems();
@@ -1227,51 +1268,75 @@ class AdminDashboard {
   }
 
   private async handleSaveManualOrder(): Promise<void> {
+    // Se o operador não clicou no botão "Adicionar", adiciona o produto selecionado automaticamente!
     if (this.manualOrderItems.length === 0) {
-      alert('Adicione pelo menos um produto na venda.');
+      this.addItemToManualOrder();
+    }
+
+    if (this.manualOrderItems.length === 0) {
+      this.notify('Selecione um produto para registrar a venda.', 'warning');
       return;
     }
 
-    const customerName = (document.getElementById('order-customer-name') as HTMLInputElement)?.value.trim() || 'Cliente Balcão';
-    const paymentMethod = (document.getElementById('order-payment-method') as HTMLSelectElement)?.value || 'Dinheiro';
-
-    const orderPayload = {
-      customer_name: customerName,
-      customer_phone: '',
-      delivery_address: 'Venda Balcão / Retirada',
-      payment_method: paymentMethod,
-      items: this.manualOrderItems.map(i => ({
-        product_id: i.productId,
-        product_name: i.name,
-        unit_price: i.price,
-        quantity: i.quantity
-      }))
-    };
+    const btnSubmit = document.querySelector('#form-create-order button[type="submit"]') as HTMLButtonElement | null;
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
 
     try {
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Registrando...';
+      }
+
+      const customerName = (document.getElementById('order-customer-name') as HTMLInputElement)?.value.trim() || 'Cliente Balcão';
+      const paymentMethod = (document.getElementById('order-payment-method') as HTMLSelectElement)?.value || 'Dinheiro';
+
+      const orderPayload = {
+        customer_name: customerName,
+        customer_phone: '',
+        delivery_address: 'Venda Balcão / Retirada',
+        payment_method: paymentMethod,
+        status: 'Concluído',
+        items: this.manualOrderItems.map(i => ({
+          product_id: i.productId,
+          product_name: i.name,
+          unit_price: i.price,
+          quantity: i.quantity
+        }))
+      };
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(orderPayload)
       });
 
-      if (!res.ok) throw new Error('Erro ao registrar venda balcão');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao registrar venda balcão');
+      }
+
       const createdOrder = await res.json();
+      const totalStr = (createdOrder.total_amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-      // Automaticamente marca venda de balcão como Concluída
-      await fetch(`/api/orders/${createdOrder.id}/status`, {
-        method: 'PATCH',
-        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ status: 'Concluído' })
-      });
+      this.notify(`Venda no balcão de ${totalStr} registrada com sucesso!`, 'success');
 
-      this.notify('Venda registrada e concluída no sistema!', 'success');
-      document.getElementById('modal-create-order')?.classList.add('hidden');
+      const modal = document.getElementById('modal-create-order');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+
+      this.manualOrderItems = [];
       await this.fetchOrders();
       await this.fetchReports();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      this.notify('Falha ao registrar venda', 'error');
+      this.notify(e.message || 'Falha ao registrar venda', 'error');
+    } finally {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = originalBtnHtml;
+      }
     }
   }
 
@@ -1497,7 +1562,11 @@ class AdminDashboard {
   }
 }
 
-// Inicializar na carga do documento
-document.addEventListener('DOMContentLoaded', () => {
+// Inicializar na carga do documento com fallback defensivo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    new AdminDashboard();
+  });
+} else {
   new AdminDashboard();
-});
+}
