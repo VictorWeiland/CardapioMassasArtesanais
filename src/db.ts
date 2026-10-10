@@ -3,8 +3,18 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 
+function getRootDir(): string {
+  if (fs.existsSync(path.join(process.cwd(), 'data', 'cardapio.db'))) {
+    return process.cwd();
+  }
+  if (fs.existsSync(path.join(__dirname, '..', 'data', 'cardapio.db'))) {
+    return path.join(__dirname, '..');
+  }
+  return process.cwd();
+}
+
 const isVercel = Boolean(process.env.VERCEL);
-const projectRoot = process.cwd();
+const projectRoot = getRootDir();
 
 // On Vercel, the only writable filesystem directory is /tmp
 const dataDir = isVercel ? path.join('/tmp', 'data') : path.resolve(projectRoot, 'data');

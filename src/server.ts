@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase } from './db';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
@@ -19,9 +20,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static assets and uploads
+// Resolve root project directory safely across local and Vercel environments
+function getRootDir(): string {
+  if (fs.existsSync(path.join(process.cwd(), 'index.html'))) {
+    return process.cwd();
+  }
+  if (fs.existsSync(path.join(__dirname, 'index.html'))) {
+    return __dirname;
+  }
+  if (fs.existsSync(path.join(__dirname, '..', 'index.html'))) {
+    return path.join(__dirname, '..');
+  }
+  return process.cwd();
+}
+
 const isVercel = Boolean(process.env.VERCEL);
-const rootDir = process.cwd();
+const rootDir = getRootDir();
+
 app.use('/assets', express.static(path.join(rootDir, 'assets')));
 app.use('/uploads', express.static(isVercel ? '/tmp/uploads' : path.join(rootDir, 'uploads')));
 app.use('/styles', express.static(path.join(rootDir, 'styles')));
