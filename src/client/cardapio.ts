@@ -1123,9 +1123,9 @@ class CardapioApp {
         `Agradecemos pela preferência! Aguardamos a confirmação.`;
 
       const encodedMessage = encodeURIComponent(messageText);
-      const phone = "11970345627";
+      const phone = "5511970345627";
 
-      // Abrir WhatsApp com o número oficial do catálogo
+      // Abrir WhatsApp com o número oficial do catálogo (com DDI 55)
       window.open(`https://wa.me/${phone}?text=${encodedMessage}`, "_blank");
 
       // Limpar cesta
