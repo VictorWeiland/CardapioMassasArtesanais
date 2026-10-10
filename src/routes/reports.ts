@@ -47,7 +47,7 @@ function getDateFilter(period?: string, startDate?: string, endDate?: string): {
 }
 
 // GET /api/reports/summary - Overall KPI stats
-router.get('/summary', (req: Request, res: Response) => {
+router.get('/summary', async (req: Request, res: Response) => {
   try {
     const { period, startDate, endDate } = req.query as { period?: string; startDate?: string; endDate?: string };
     const dateFilter = getDateFilter(period, startDate, endDate);
@@ -64,12 +64,18 @@ router.get('/summary', (req: Request, res: Response) => {
       WHERE 1=1 ${dateFilter.condition}
     `;
 
-    const stats = db.prepare(statsQuery).get(...dateFilter.params) as {
+    const stats = await db.get<{
       totalRevenue: number;
       totalOrders: number;
       completedOrders: number;
       pendingOrders: number;
       canceledOrders: number;
+    }>(statsQuery, dateFilter.params) || {
+      totalRevenue: 0,
+      totalOrders: 0,
+      completedOrders: 0,
+      pendingOrders: 0,
+      canceledOrders: 0
     };
 
     const validOrdersCount = (stats.completedOrders || 0) + (stats.pendingOrders || 0);
@@ -90,7 +96,7 @@ router.get('/summary', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/sales-by-date - Daily trend of orders and revenue
-router.get('/sales-by-date', (req: Request, res: Response) => {
+router.get('/sales-by-date', async (req: Request, res: Response) => {
   try {
     const { period, startDate, endDate } = req.query as { period?: string; startDate?: string; endDate?: string };
     const dateFilter = getDateFilter(period || '30days', startDate, endDate);
@@ -106,7 +112,7 @@ router.get('/sales-by-date', (req: Request, res: Response) => {
       ORDER BY date(o.created_at) ASC
     `;
 
-    const results = db.prepare(query).all(...dateFilter.params);
+    const results = await db.all(query, dateFilter.params);
     res.json(results);
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao buscar vendas por data', details: error.message });
@@ -114,7 +120,7 @@ router.get('/sales-by-date', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/top-products - Top selling products
-router.get('/top-products', (req: Request, res: Response) => {
+router.get('/top-products', async (req: Request, res: Response) => {
   try {
     const { period, startDate, endDate, limit = 10 } = req.query as any;
     const dateFilter = getDateFilter(period, startDate, endDate);
@@ -136,7 +142,7 @@ router.get('/top-products', (req: Request, res: Response) => {
       LIMIT ?
     `;
 
-    const results = db.prepare(query).all(...dateFilter.params, Number(limit));
+    const results = await db.all(query, [...dateFilter.params, Number(limit)]);
     res.json(results);
   } catch (error: any) {
     console.error('Erro nos produtos mais vendidos:', error);
@@ -145,7 +151,7 @@ router.get('/top-products', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/by-category - Sales distribution by category
-router.get('/by-category', (req: Request, res: Response) => {
+router.get('/by-category', async (req: Request, res: Response) => {
   try {
     const { period, startDate, endDate } = req.query as any;
     const dateFilter = getDateFilter(period, startDate, endDate);
@@ -164,7 +170,7 @@ router.get('/by-category', (req: Request, res: Response) => {
       ORDER BY total_revenue DESC
     `;
 
-    const results = db.prepare(query).all(...dateFilter.params);
+    const results = await db.all(query, dateFilter.params);
     res.json(results);
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao buscar vendas por categoria', details: error.message });
@@ -172,7 +178,7 @@ router.get('/by-category', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/payment-methods - Breakdown by payment method
-router.get('/payment-methods', (req: Request, res: Response) => {
+router.get('/payment-methods', async (req: Request, res: Response) => {
   try {
     const { period, startDate, endDate } = req.query as any;
     const dateFilter = getDateFilter(period, startDate, endDate);
@@ -188,7 +194,7 @@ router.get('/payment-methods', (req: Request, res: Response) => {
       ORDER BY total_revenue DESC
     `;
 
-    const results = db.prepare(query).all(...dateFilter.params);
+    const results = await db.all(query, dateFilter.params);
     res.json(results);
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao buscar formas de pagamento', details: error.message });

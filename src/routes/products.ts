@@ -45,7 +45,7 @@ export const upload = multer({
 });
 
 // GET /api/products - List all products
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -77,7 +77,7 @@ router.get('/', (req: Request, res: Response) => {
 
     query += ' ORDER BY p.category_id ASC, p.id ASC';
 
-    const products = db.prepare(query).all(...params) as Product[];
+    const products = await db.all<Product>(query, params);
     res.json(products);
   } catch (error: any) {
     console.error('Erro ao buscar produtos:', error);
@@ -86,15 +86,15 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // GET /api/products/:id - Get product by ID
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const product = db.prepare(`
+    const product = await db.get<Product>(`
       SELECT p.*, c.name as category_name, c.slug as category_slug
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE p.id = ?
-    `).get(id) as Product | undefined;
+    `, [id]);
 
     if (!product) {
       return res.status(404).json({ error: 'Produto não encontrado' });
@@ -107,7 +107,7 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/products - Create new product with photo upload
-router.post('/', requireAdminAuth, upload.single('image'), (req: Request, res: Response) => {
+router.post('/', requireAdminAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
     const { name, description, price, portion, category_id, image_url } = req.body;
 
@@ -139,26 +139,25 @@ router.post('/', requireAdminAuth, upload.single('image'), (req: Request, res: R
 
     const finalPortion = portion && typeof portion === 'string' && portion.trim() !== '' ? portion.trim() : null;
 
-    const stmt = db.prepare(`
-      INSERT INTO products (name, description, price, portion, category_id, image_url, active)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `);
-
-    const result = stmt.run(
-      name.trim(),
-      description ? description.trim() : '',
-      parsedPrice,
-      finalPortion,
-      parsedCatId,
-      finalImageUrl
+    const result = await db.run(
+      `INSERT INTO products (name, description, price, portion, category_id, image_url, active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [
+        name.trim(),
+        description ? description.trim() : '',
+        parsedPrice,
+        finalPortion,
+        parsedCatId,
+        finalImageUrl
+      ]
     );
 
-    const createdProduct = db.prepare(`
+    const createdProduct = await db.get<Product>(`
       SELECT p.*, c.name as category_name, c.slug as category_slug
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE p.id = ?
-    `).get(result.lastInsertRowid) as Product;
+    `, [result.lastInsertRowid]);
 
     res.status(201).json(createdProduct);
   } catch (error: any) {
@@ -168,10 +167,10 @@ router.post('/', requireAdminAuth, upload.single('image'), (req: Request, res: R
 });
 
 // PUT /api/products/:id - Update product
-router.put('/:id', requireAdminAuth, upload.single('image'), (req: Request, res: Response) => {
+router.put('/:id', requireAdminAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as Product | undefined;
+    const existing = await db.get<Product>('SELECT * FROM products WHERE id = ?', [id]);
 
     if (!existing) {
       return res.status(404).json({ error: 'Produto não encontrado' });
@@ -197,18 +196,18 @@ router.put('/:id', requireAdminAuth, upload.single('image'), (req: Request, res:
       updatedImageUrl = image_url.trim();
     }
 
-    db.prepare(`
+    await db.run(`
       UPDATE products
       SET name = ?, description = ?, price = ?, portion = ?, category_id = ?, image_url = ?, active = ?
       WHERE id = ?
-    `).run(updatedName, updatedDesc, updatedPrice, updatedPortion, updatedCatId, updatedImageUrl, updatedActive, id);
+    `, [updatedName, updatedDesc, updatedPrice, updatedPortion, updatedCatId, updatedImageUrl, updatedActive, id]);
 
-    const updatedProduct = db.prepare(`
+    const updatedProduct = await db.get<Product>(`
       SELECT p.*, c.name as category_name, c.slug as category_slug
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE p.id = ?
-    `).get(id) as Product;
+    `, [id]);
 
     res.json(updatedProduct);
   } catch (error: any) {
@@ -218,17 +217,17 @@ router.put('/:id', requireAdminAuth, upload.single('image'), (req: Request, res:
 });
 
 // PATCH /api/products/:id/toggle - Toggle active status
-router.patch('/:id/toggle', requireAdminAuth, (req: Request, res: Response) => {
+router.patch('/:id/toggle', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as Product | undefined;
+    const existing = await db.get<Product>('SELECT * FROM products WHERE id = ?', [id]);
 
     if (!existing) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
 
     const newActive = existing.active === 1 ? 0 : 1;
-    db.prepare('UPDATE products SET active = ? WHERE id = ?').run(newActive, id);
+    await db.run('UPDATE products SET active = ? WHERE id = ?', [newActive, id]);
 
     res.json({ id: Number(id), active: newActive });
   } catch (error: any) {
@@ -237,18 +236,17 @@ router.patch('/:id/toggle', requireAdminAuth, (req: Request, res: Response) => {
 });
 
 // DELETE /api/products/:id - Delete product
-router.delete('/:id', requireAdminAuth, (req: Request, res: Response) => {
+router.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as Product | undefined;
+    const existing = await db.get<Product>('SELECT * FROM products WHERE id = ?', [id]);
 
     if (!existing) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
 
-    db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    await db.run('DELETE FROM products WHERE id = ?', [id]);
 
-    // Optional: If product photo is inside uploads, we could delete it, but keeping it or safely checking
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
       const filePath = path.join(uploadDir, path.basename(existing.image_url));
       if (fs.existsSync(filePath)) {

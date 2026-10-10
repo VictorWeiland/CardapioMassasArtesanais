@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { verifyPassword, hashPassword, generateToken, requireAdminAuth, AuthenticatedRequest } from '../auth';
+import { verifyPassword, hashPassword, createSignedToken, generateToken, requireAdminAuth, AuthenticatedRequest } from '../auth';
 
 const router = Router();
 
 // POST /api/auth/login - Autenticação do Administrador
-router.post('/login', (req: Request, res: Response) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
 
@@ -13,7 +13,7 @@ router.post('/login', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Informe usuário e senha para acessar.' });
     }
 
-    const admin = db.prepare('SELECT * FROM admins WHERE username = ?').get(username.trim()) as any;
+    const admin = await db.get('SELECT * FROM admins WHERE username = ?', [username.trim()]) as any;
 
     if (!admin) {
       return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
@@ -24,16 +24,20 @@ router.post('/login', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
     }
 
-    // Gerar token de sessão válido por 30 dias
-    const token = generateToken();
+    // Gerar token assinado stateless válido por 30 dias (resiliente em Vercel e lambdas)
+    const token = createSignedToken({ id: admin.id, username: admin.username }, 30);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
     const expiresAtStr = expiresAt.toISOString().replace('T', ' ').substring(0, 19);
 
-    db.prepare(`
-      INSERT INTO sessions (admin_id, token, expires_at)
-      VALUES (?, ?, ?)
-    `).run(admin.id, token, expiresAtStr);
+    try {
+      await db.run(
+        `INSERT INTO sessions (admin_id, token, expires_at) VALUES (?, ?, ?)`,
+        [admin.id, token, expiresAtStr]
+      );
+    } catch (e) {
+      // safe fallback if sessions table is unavailable
+    }
 
     res.json({
       message: 'Login realizado com sucesso',
@@ -56,12 +60,16 @@ router.get('/verify', requireAdminAuth, (req: AuthenticatedRequest, res: Respons
 });
 
 // POST /api/auth/logout - Encerrar sessão
-router.post('/logout', (req: Request, res: Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7).trim();
-      db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+      try {
+        await db.run('DELETE FROM sessions WHERE token = ?', [token]);
+      } catch (e) {
+        // ignore if sessions table is not available
+      }
     }
     res.json({ message: 'Sessão encerrada com sucesso.' });
   } catch (error: any) {
@@ -70,7 +78,7 @@ router.post('/logout', (req: Request, res: Response) => {
 });
 
 // POST /api/auth/change-password - Trocar senha de acesso
-router.post('/change-password', requireAdminAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post('/change-password', requireAdminAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -82,7 +90,7 @@ router.post('/change-password', requireAdminAuth, (req: AuthenticatedRequest, re
       return res.status(400).json({ error: 'A nova senha deve ter pelo menos 4 caracteres.' });
     }
 
-    const admin = db.prepare('SELECT * FROM admins WHERE id = ?').get(req.adminUser!.id) as any;
+    const admin = await db.get('SELECT * FROM admins WHERE id = ?', [req.adminUser!.id]) as any;
     if (!admin) {
       return res.status(404).json({ error: 'Administrador não encontrado.' });
     }
@@ -93,9 +101,8 @@ router.post('/change-password', requireAdminAuth, (req: AuthenticatedRequest, re
     }
 
     const { salt, hash } = hashPassword(newPassword);
-    db.prepare('UPDATE admins SET password_hash = ?, salt = ? WHERE id = ?').run(hash, salt, admin.id);
+    await db.run('UPDATE admins SET password_hash = ?, salt = ? WHERE id = ?', [hash, salt, admin.id]);
 
-    // Opcional: remover sessões antigas
     res.json({ message: 'Senha alterada com sucesso!' });
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao trocar senha', details: error.message });

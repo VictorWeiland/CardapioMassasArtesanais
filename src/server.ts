@@ -12,8 +12,8 @@ import authRouter from './routes/auth';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize SQLite database and tables
-initDatabase();
+// Initialize database and tables
+initDatabase().catch(err => console.error('Error initializing database:', err));
 
 // Middlewares
 app.use(cors());

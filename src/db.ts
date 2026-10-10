@@ -1,7 +1,10 @@
-import Database from 'better-sqlite3';
+import { createClient, Client } from '@libsql/client';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 function getRootDir(): string {
   if (fs.existsSync(path.join(process.cwd(), 'data', 'cardapio.db'))) {
@@ -16,7 +19,6 @@ function getRootDir(): string {
 const isVercel = Boolean(process.env.VERCEL);
 const projectRoot = getRootDir();
 
-// On Vercel, the only writable filesystem directory is /tmp
 const dataDir = isVercel ? path.join('/tmp', 'data') : path.resolve(projectRoot, 'data');
 const uploadsDir = isVercel ? path.join('/tmp', 'uploads') : path.resolve(projectRoot, 'uploads');
 
@@ -27,33 +29,67 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, 'cardapio.db');
+const localDbPath = path.join(dataDir, 'cardapio.db');
 
-// If running on Vercel and DB doesn't exist in /tmp yet, copy bundled seed DB
-if (isVercel && !fs.existsSync(dbPath)) {
+// If running on Vercel and DB doesn't exist in /tmp yet and Turso is not configured, copy bundled seed DB
+if (isVercel && !process.env.TURSO_DATABASE_URL && !fs.existsSync(localDbPath)) {
   const bundledDbPath = path.resolve(projectRoot, 'data', 'cardapio.db');
   if (fs.existsSync(bundledDbPath)) {
     try {
-      fs.copyFileSync(bundledDbPath, dbPath);
+      fs.copyFileSync(bundledDbPath, localDbPath);
     } catch (e) {
       console.warn('Could not copy bundled DB to /tmp, will initialize fresh DB', e);
     }
   }
 }
 
-export const db = new Database(dbPath);
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
-// Enable WAL mode on local, or DELETE journal on serverless /tmp
-if (!isVercel) {
-  db.pragma('journal_mode = WAL');
-} else {
-  db.pragma('journal_mode = DELETE');
+export const isTursoConfigured = Boolean(tursoUrl && tursoToken);
+
+const normalizedLocalPath = localDbPath.replace(/\\/g, '/');
+
+export const client: Client = isTursoConfigured
+  ? createClient({
+      url: tursoUrl!,
+      authToken: tursoToken
+    })
+  : createClient({
+      url: `file:${normalizedLocalPath}`
+    });
+
+export interface RunResult {
+  lastInsertRowid: number;
+  changes: number;
 }
-db.pragma('foreign_keys = ON');
 
-export function initDatabase(forceReset: boolean = false): void {
+export const db = {
+  client,
+  async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+    const res = await client.execute({ sql, args: params });
+    return res.rows.map(r => ({ ...r } as unknown as T));
+  },
+  async get<T = any>(sql: string, params: any[] = []): Promise<T | undefined> {
+    const res = await client.execute({ sql, args: params });
+    if (!res.rows || res.rows.length === 0) return undefined;
+    return { ...res.rows[0] } as unknown as T;
+  },
+  async run(sql: string, params: any[] = []): Promise<RunResult> {
+    const res = await client.execute({ sql, args: params });
+    return {
+      lastInsertRowid: Number(res.lastInsertRowid ?? 0),
+      changes: res.rowsAffected
+    };
+  },
+  async exec(sql: string): Promise<void> {
+    await client.executeMultiple(sql);
+  }
+};
+
+export async function initDatabase(forceReset: boolean = false): Promise<void> {
   // Create tables
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -117,11 +153,11 @@ export function initDatabase(forceReset: boolean = false): void {
 
   // Ensure 'portion' column exists on products table
   try {
-    const tableInfo = db.prepare("PRAGMA table_info(products)").all() as Array<{ name: string }>;
+    const tableInfo = await db.all<{ name: string }>("PRAGMA table_info(products)");
     if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'portion')) {
-      db.exec("ALTER TABLE products ADD COLUMN portion TEXT;");
+      await db.exec("ALTER TABLE products ADD COLUMN portion TEXT;");
     }
-    db.exec(`
+    await db.exec(`
       UPDATE products
       SET portion = SUBSTR(name, INSTR(name, '(') + 1, INSTR(name, ')') - INSTR(name, '(') - 1)
       WHERE (portion IS NULL OR portion = '') AND name LIKE '%(%)%';
@@ -131,52 +167,43 @@ export function initDatabase(forceReset: boolean = false): void {
   }
 
   // Seed default admin account if none exists
-  seedDefaultAdmin();
+  await seedDefaultAdmin();
 
   // Check if current menu already has "Massas Tradicionais"
-  const hasMassas = db.prepare("SELECT COUNT(*) as count FROM categories WHERE slug = 'massas-tradicionais'").get() as { count: number };
+  const hasMassas = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM categories WHERE slug = 'massas-tradicionais'");
   
-  if (forceReset || hasMassas.count === 0) {
-    populatePadeiroMenu();
+  if (forceReset || !hasMassas || hasMassas.count === 0) {
+    await populatePadeiroMenu();
   }
 }
 
-export function seedDefaultAdmin(): void {
-  const adminCount = db.prepare('SELECT COUNT(*) as count FROM admins').get() as { count: number };
-  if (adminCount.count === 0) {
+export async function seedDefaultAdmin(): Promise<void> {
+  const adminCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM admins');
+  if (!adminCount || adminCount.count === 0) {
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.scryptSync('padeiro123', salt, 64).toString('hex');
-    db.prepare('INSERT INTO admins (username, password_hash, salt) VALUES (?, ?, ?)')
-      .run('admin', hash, salt);
+    await db.run('INSERT INTO admins (username, password_hash, salt) VALUES (?, ?, ?)', ['admin', hash, salt]);
   }
 }
 
-export function populatePadeiroMenu(): void {
+export async function populatePadeiroMenu(): Promise<void> {
   // Clean up existing data to apply the new cardápio
   try {
-    db.exec(`
+    await db.exec(`
       DELETE FROM order_items;
       DELETE FROM orders;
       DELETE FROM products;
       DELETE FROM categories;
-      DELETE FROM sqlite_sequence WHERE name IN ('order_items', 'orders', 'products', 'categories');
     `);
   } catch (e) {
     // sqlite_sequence might not exist yet
   }
 
   // Insert Categories
-  const insertCat = db.prepare('INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)');
-  insertCat.run(1, 'Massas Tradicionais', 'massas-tradicionais');
-  insertCat.run(2, 'Seleção de Nhoques', 'selecao-de-nhoques');
-  insertCat.run(3, 'Padaria Artesanal', 'padaria-artesanal');
-  insertCat.run(4, 'Pizzas & Salgados', 'pizzas-e-salgados');
-
-  // Insert Products
-  const insertProd = db.prepare(`
-    INSERT INTO products (name, description, price, portion, category_id, image_url, active)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
-  `);
+  await db.run('INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)', [1, 'Massas Tradicionais', 'massas-tradicionais']);
+  await db.run('INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)', [2, 'Seleção de Nhoques', 'selecao-de-nhoques']);
+  await db.run('INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)', [3, 'Padaria Artesanal', 'padaria-artesanal']);
+  await db.run('INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)', [4, 'Pizzas & Salgados', 'pizzas-e-salgados']);
 
   const menuProducts = [
     // --- MASSAS TRADICIONAIS ---
@@ -387,24 +414,18 @@ export function populatePadeiroMenu(): void {
   for (const prod of menuProducts) {
     const match = prod.name.match(/\((.*?)\)/);
     const portion = match ? match[1].trim() : null;
-    insertProd.run(prod.name, prod.description, prod.price, portion, prod.category_id, prod.image_url);
+    await db.run(
+      `INSERT INTO products (name, description, price, portion, category_id, image_url, active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [prod.name, prod.description, prod.price, portion, prod.category_id, prod.image_url]
+    );
   }
 
   // Seed sample orders to populate reports
-  seedSampleOrders();
+  await seedSampleOrders();
 }
 
-function seedSampleOrders(): void {
-  const insertOrder = db.prepare(`
-    INSERT INTO orders (customer_name, customer_phone, delivery_address, payment_method, status, total_amount, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertOrderItem = db.prepare(`
-    INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity, subtotal)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
+async function seedSampleOrders(): Promise<void> {
   const getDateAgo = (daysAgo: number, hour: number = 18): string => {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
@@ -489,28 +510,20 @@ function seedSampleOrders(): void {
 
   for (const order of sampleOrders) {
     const total = order.items.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const res = insertOrder.run(
-      order.name,
-      order.phone,
-      order.address,
-      order.payment,
-      order.status,
-      total,
-      order.date
+    const res = await db.run(
+      `INSERT INTO orders (customer_name, customer_phone, delivery_address, payment_method, status, total_amount, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [order.name, order.phone, order.address, order.payment, order.status, total, order.date]
     );
     const orderId = res.lastInsertRowid;
 
-    const findProd = db.prepare('SELECT id FROM products WHERE name = ?');
     for (const item of order.items) {
-      const p = findProd.get(item.name) as { id: number } | undefined;
+      const p = await db.get<{ id: number }>('SELECT id FROM products WHERE name = ?', [item.name]);
       const actualProdId = p ? p.id : null;
-      insertOrderItem.run(
-        orderId,
-        actualProdId,
-        item.name,
-        item.price,
-        item.qty,
-        item.price * item.qty
+      await db.run(
+        `INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity, subtotal)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [orderId, actualProdId, item.name, item.price, item.qty, item.price * item.qty]
       );
     }
   }

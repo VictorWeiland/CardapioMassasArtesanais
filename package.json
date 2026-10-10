@@ -10,6 +10,7 @@
     "build:client": "esbuild src/client/cardapio.ts --bundle --minify --outfile=public/js/cardapio.js && esbuild src/client/admin.ts --bundle --minify --outfile=public/js/admin.js",
     "build:server": "tsc",
     "build": "npm run build:css && npm run build:client && npm run build:server",
+    "db:push-turso": "tsx scripts/push-turso.ts",
     "start": "node dist/server.js"
   },
   "keywords": [],
@@ -27,8 +28,10 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
     "express": "^5.2.1",
     "multer": "^2.4.0"
   }

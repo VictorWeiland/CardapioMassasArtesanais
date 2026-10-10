@@ -17,15 +17,15 @@ function slugify(text: string): string {
 }
 
 // GET /api/categories - List categories with product count
-router.get('/', (_req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const categories = db.prepare(`
+    const categories = await db.all<Category & { product_count: number }>(`
       SELECT c.*, COUNT(p.id) as product_count
       FROM categories c
       LEFT JOIN products p ON c.id = p.category_id
       GROUP BY c.id
       ORDER BY c.id ASC
-    `).all() as (Category & { product_count: number })[];
+    `);
     res.json(categories);
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao listar categorias', details: error.message });
@@ -33,7 +33,7 @@ router.get('/', (_req: Request, res: Response) => {
 });
 
 // POST /api/categories - Create new category
-router.post('/', requireAdminAuth, (req: Request, res: Response) => {
+router.post('/', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -47,14 +47,23 @@ router.post('/', requireAdminAuth, (req: Request, res: Response) => {
     }
 
     // Check if category or slug already exists
-    const existing = db.prepare('SELECT * FROM categories WHERE LOWER(name) = LOWER(?) OR slug = ?').get(trimmedName, slug) as Category | undefined;
+    const existing = await db.get<Category>(
+      'SELECT * FROM categories WHERE LOWER(name) = LOWER(?) OR slug = ?',
+      [trimmedName, slug]
+    );
     if (existing) {
       return res.status(400).json({ error: 'Já existe uma categoria cadastrada com este nome.' });
     }
 
-    const result = db.prepare('INSERT INTO categories (name, slug) VALUES (?, ?)').run(trimmedName, slug);
+    const result = await db.run(
+      'INSERT INTO categories (name, slug) VALUES (?, ?)',
+      [trimmedName, slug]
+    );
 
-    const newCategory = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid) as Category;
+    const newCategory = await db.get<Category>(
+      'SELECT * FROM categories WHERE id = ?',
+      [result.lastInsertRowid]
+    );
     res.status(201).json(newCategory);
   } catch (error: any) {
     console.error('Erro ao criar categoria:', error);
@@ -63,7 +72,7 @@ router.post('/', requireAdminAuth, (req: Request, res: Response) => {
 });
 
 // DELETE /api/categories/:id - Delete category (if no products are assigned)
-router.delete('/:id', requireAdminAuth, (req: Request, res: Response) => {
+router.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const catId = parseInt(id as string, 10);
@@ -71,20 +80,23 @@ router.delete('/:id', requireAdminAuth, (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID de categoria inválido' });
     }
 
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(catId) as Category | undefined;
+    const category = await db.get<Category>('SELECT * FROM categories WHERE id = ?', [catId]);
     if (!category) {
       return res.status(404).json({ error: 'Categoria não encontrada' });
     }
 
     // Check if products exist in this category
-    const productCountResult = db.prepare('SELECT COUNT(*) as count FROM products WHERE category_id = ?').get(catId) as { count: number };
-    if (productCountResult.count > 0) {
+    const productCountResult = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM products WHERE category_id = ?',
+      [catId]
+    );
+    if (productCountResult && productCountResult.count > 0) {
       return res.status(400).json({
         error: `Não é possível excluir esta categoria porque há ${productCountResult.count} produto(s) associado(s) a ela. Mova ou exclua os produtos primeiro.`
       });
     }
 
-    db.prepare('DELETE FROM categories WHERE id = ?').run(catId);
+    await db.run('DELETE FROM categories WHERE id = ?', [catId]);
     res.json({ success: true, message: 'Categoria excluída com sucesso' });
   } catch (error: any) {
     console.error('Erro ao excluir categoria:', error);
