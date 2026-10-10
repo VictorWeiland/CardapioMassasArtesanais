@@ -343,30 +343,23 @@ class AdminDashboard {
       this.handleSaveProduct();
     });
 
-    // Portion Preset Syncing in Product Modal
-    const portionPresetSelect = document.getElementById('product-portion-preset') as HTMLSelectElement | null;
+    // Portion Chip Shortcuts in Product Modal
     const portionInput = document.getElementById('product-portion') as HTMLInputElement | null;
-
-    portionPresetSelect?.addEventListener('change', () => {
-      if (portionPresetSelect.value === 'custom') {
-        portionInput?.focus();
-      } else {
-        if (portionInput) portionInput.value = portionPresetSelect.value;
-      }
-    });
-
-    portionInput?.addEventListener('input', () => {
-      if (portionPresetSelect) {
-        const val = portionInput.value.trim();
-        const optionExists = Array.from(portionPresetSelect.options).some(opt => opt.value === val);
-        if (optionExists) {
-          portionPresetSelect.value = val;
-        } else if (val !== '') {
-          portionPresetSelect.value = 'custom';
+    document.querySelectorAll('.btn-portion-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const pVal = chip.getAttribute('data-portion');
+        if (!pVal || !portionInput) return;
+        const current = portionInput.value.trim();
+        if (!current) {
+          portionInput.value = pVal;
         } else {
-          portionPresetSelect.value = '';
+          const existingList = current.split(',').map(s => s.trim().split(':')[0].trim());
+          if (!existingList.includes(pVal)) {
+            portionInput.value = `${current}, ${pVal}`;
+          }
         }
-      }
+        portionInput.focus();
+      });
     });
 
     // Category Modal Setup
@@ -734,7 +727,10 @@ class AdminDashboard {
           <td class="px-6 py-4">
             <div class="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
               <span>${p.name}</span>
-              ${p.portion ? `<span class="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-200">${p.portion}</span>` : ''}
+              ${p.portion ? (p.portion.includes(',') 
+                ? `<span class="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-200" title="${p.portion}"><i class="fa fa-scale-balanced text-[9px] mr-1"></i>${p.portion.split(',').length} tamanhos</span>` 
+                : `<span class="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-200">${p.portion}</span>`
+              ) : ''}
               ${p.flavors ? `<span class="bg-purple-100 text-purple-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-purple-200" title="Opções: ${p.flavors}"><i class="fa fa-utensils text-[9px] mr-1"></i>${p.flavors.split(',').length} opções</span>` : ''}
             </div>
             <div class="text-xs text-gray-500 line-clamp-1 max-w-xs mt-0.5">${p.description || '-'}</div>
@@ -793,7 +789,6 @@ class AdminDashboard {
     const inputName = document.getElementById('product-name') as HTMLInputElement;
     const inputCat = document.getElementById('product-category') as HTMLSelectElement;
     const inputPortion = document.getElementById('product-portion') as HTMLInputElement | null;
-    const selectPortionPreset = document.getElementById('product-portion-preset') as HTMLSelectElement | null;
     const inputFlavors = document.getElementById('product-flavors') as HTMLInputElement | null;
     const inputPrice = document.getElementById('product-price') as HTMLInputElement;
     const inputDesc = document.getElementById('product-description') as HTMLTextAreaElement;
@@ -827,16 +822,6 @@ class AdminDashboard {
         if (match) portionVal = match[1].trim();
       }
       if (inputPortion) inputPortion.value = portionVal;
-      if (selectPortionPreset) {
-        const optionExists = Array.from(selectPortionPreset.options).some(opt => opt.value === portionVal);
-        if (optionExists) {
-          selectPortionPreset.value = portionVal;
-        } else if (portionVal) {
-          selectPortionPreset.value = 'custom';
-        } else {
-          selectPortionPreset.value = '';
-        }
-      }
     } else {
       if (modalTitle) modalTitle.innerHTML = '<i class="fa fa-plus-circle text-[#b45309]"></i> <span>Cadastrar Novo Produto</span>';
       if (inputId) inputId.value = '';
@@ -844,7 +829,6 @@ class AdminDashboard {
       if (inputPrice) inputPrice.value = '';
       if (inputPortion) inputPortion.value = '';
       if (inputFlavors) inputFlavors.value = '';
-      if (selectPortionPreset) selectPortionPreset.value = '';
       if (inputDesc) inputDesc.value = '';
       if (inputUrl) inputUrl.value = '';
       if (previewImg) previewImg.src = '/assets/padeiro/paes.png';

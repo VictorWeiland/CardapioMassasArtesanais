@@ -495,39 +495,37 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-portion-preset">
-              Porção / Tamanho
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-portion">
+              Opções de Porções / Tamanhos (Opcional)
             </label>
             <div class="space-y-1.5">
-              <select 
-                id="product-portion-preset" 
-                class="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none bg-white transition font-medium text-gray-700"
-              >
-                <option value="">(Sem porção específica)</option>
-                <option value="300g">300g</option>
-                <option value="600g">600g</option>
-                <option value="1 kg">1 kg</option>
-                <option value="2 unidades">2 unidades</option>
-                <option value="5 unidades">5 unidades</option>
-                <option value="10 unidades">10 unidades</option>
-                <option value="20x20 cm">20x20 cm</option>
-                <option value="30x30 cm">30x30 cm</option>
-                <option value="Unidade">Unidade</option>
-                <option value="custom">Outro (digitar abaixo)</option>
-              </select>
               <input 
                 type="text" 
                 id="product-portion" 
                 name="portion" 
-                placeholder="Ex: 600g, 5 unidades..." 
-                class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition"
+                placeholder="Ex: 300g, 600g ou 300g: 22, 600g: 42" 
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition"
               />
+              <div class="flex items-center gap-1.5 flex-wrap pt-0.5" id="portion-chips-container">
+                <span class="text-[10px] text-gray-400 font-bold uppercase mr-0.5">Atalhos:</span>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="300g">+ 300g</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="600g">+ 600g</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="1 kg">+ 1 kg</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="2 unidades">+ 2 un</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="5 unidades">+ 5 un</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="10 unidades">+ 10 un</button>
+                <button type="button" class="btn-portion-chip text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-semibold transition" data-portion="Unidade">+ Unidade</button>
+              </div>
+              <p class="text-[11px] text-gray-500 flex items-center gap-1.5 pt-0.5">
+                <i class="fa fa-info-circle text-amber-600"></i>
+                <span>Separe por vírgula para dar opções ao cliente. Para preços diferentes: <code>300g: 22, 600g: 42</code></span>
+              </p>
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="product-price">
-              Preço (R$) *
+              Preço Padrão / Base (R$) *
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-sm font-semibold text-gray-400">R$</span>
@@ -542,6 +540,7 @@
                 class="w-full pl-10 pr-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#d97706] outline-none transition font-semibold"
               />
             </div>
+            <p class="text-[11px] text-gray-500 mt-1">Preço principal do produto ou da menor porção cadastrada.</p>
           </div>
         </div>
 
