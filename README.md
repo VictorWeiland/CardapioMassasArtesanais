@@ -12,8 +12,6 @@ Para manter o painel administrativo 100% privado e invisível aos clientes comun
 1. **Botão Público Ocultado:** O cardápio do cliente (`/`) não exibe nenhum botão ou link para o painel administrativo.
 2. **Atalho Secreto no Teclado:** No cardápio público, pressione **`Ctrl + Shift + A`** (ou acesse diretamente a URL `/admin`) para abrir o painel de administração.
 3. **Tela de Login Privada com Senha:**
-   - **Usuário Padrão:** `admin`
-   - **Senha Padrão:** `padeiro123`
 4. **Proteção de Rotas e APIs no Backend:**
    - As rotas de relatórios financeiros (`/api/reports/*`) e operações de alteração/exclusão de produtos e pedidos estão bloqueadas por tokens de autenticação criptografados via algoritmo `scrypt` nativo do Node.js.
    - O administrador pode alterar sua senha a qualquer momento através do botão **"Senha"** no cabeçalho do painel.
