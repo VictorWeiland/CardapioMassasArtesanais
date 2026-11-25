@@ -749,7 +749,7 @@ class AdminDashboard {
         <tr class="hover:bg-amber-50/40 transition-colors">
           <td class="px-6 py-4 whitespace-nowrap">
             <div class="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 shadow-xs flex items-center justify-center">
-              <img src="${p.image_url}" alt="${p.name}" class="w-full h-full object-cover" onerror="this.src='/assets/padeiro/paes.png'">
+              <img src="${p.image_url}" alt="${p.name}" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.src='/assets/padeiro/paes.png'">
             </div>
           </td>
           <td class="px-6 py-4">

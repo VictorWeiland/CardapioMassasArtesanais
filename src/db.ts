@@ -87,115 +87,112 @@ export const db = {
   }
 };
 
+let isDbInitialized = false;
+let initDbPromise: Promise<void> | null = null;
+
 export async function initDatabase(forceReset: boolean = false): Promise<void> {
-  // Create tables
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE
-    );
+  if (isDbInitialized && !forceReset) {
+    return;
+  }
+  if (initDbPromise && !forceReset) {
+    return initDbPromise;
+  }
 
-    CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      price REAL NOT NULL,
-      portion TEXT,
-      flavors TEXT,
-      category_id INTEGER NOT NULL,
-      image_url TEXT NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE RESTRICT
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_name TEXT,
-      customer_phone TEXT,
-      delivery_address TEXT NOT NULL,
-      payment_method TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'Pendente',
-      total_amount REAL NOT NULL,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL,
-      product_id INTEGER,
-      product_name TEXT NOT NULL,
-      unit_price REAL NOT NULL,
-      quantity INTEGER NOT NULL,
-      subtotal REAL NOT NULL,
-      FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-      FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      salt TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      admin_id INTEGER NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at DATETIME NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (admin_id) REFERENCES admins (id) ON DELETE CASCADE
-    );
-  `);
-
-  // Ensure 'portion' and 'flavors' columns exist on products table
-  try {
-    const tableInfo = await db.all<{ name: string }>("PRAGMA table_info(products)");
-    if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'portion')) {
-      await db.exec("ALTER TABLE products ADD COLUMN portion TEXT;");
-    }
-    if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'flavors')) {
-      await db.exec("ALTER TABLE products ADD COLUMN flavors TEXT;");
-    }
-
+  initDbPromise = (async () => {
+    // Create tables
     await db.exec(`
-      UPDATE products
-      SET portion = SUBSTR(name, INSTR(name, '(') + 1, INSTR(name, ')') - INSTR(name, '(') - 1)
-      WHERE (portion IS NULL OR portion = '') AND name LIKE '%(%)%';
+      CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE
+      );
 
-      UPDATE products
-      SET flavors = 'Queijo, Carne Moída'
-      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Panqueca%';
+      CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL,
+        portion TEXT,
+        flavors TEXT,
+        category_id INTEGER NOT NULL,
+        image_url TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE RESTRICT
+      );
 
-      UPDATE products
-      SET flavors = 'Muçarela, Calabresa, Frango com Requeijão'
-      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Pizza Brotinho%';
+      CREATE INDEX IF NOT EXISTS idx_products_active_cat ON products (active, category_id);
+      CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories (slug);
 
-      UPDATE products
-      SET flavors = 'Frango, Palmito'
-      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Empada%';
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        delivery_address TEXT NOT NULL,
+        payment_method TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Pendente',
+        total_amount REAL NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
 
-      UPDATE products
-      SET flavors = 'Frango com Catupiry, Calabresa com Queijo'
-      WHERE (flavors IS NULL OR flavors = '') AND name LIKE '%Pão Recheado%';
+      CREATE TABLE IF NOT EXISTS order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_id INTEGER,
+        product_name TEXT NOT NULL,
+        unit_price REAL NOT NULL,
+        quantity INTEGER NOT NULL,
+        subtotal REAL NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        admin_id INTEGER NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (admin_id) REFERENCES admins (id) ON DELETE CASCADE
+      );
     `);
-  } catch (err) {
-    console.error('Migration portion/flavors column error:', err);
-  }
 
-  // Seed default admin account if none exists
-  await seedDefaultAdmin();
+    // Ensure 'portion' and 'flavors' columns exist on products table only once
+    try {
+      const tableInfo = await db.all<{ name: string }>("PRAGMA table_info(products)");
+      if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'portion')) {
+        await db.exec("ALTER TABLE products ADD COLUMN portion TEXT;");
+      }
+      if (tableInfo.length > 0 && !tableInfo.some(col => col.name === 'flavors')) {
+        await db.exec("ALTER TABLE products ADD COLUMN flavors TEXT;");
+      }
+    } catch (err) {
+      console.error('Migration portion/flavors column error:', err);
+    }
 
-  // Check if current menu already has "Massas Tradicionais"
-  const hasMassas = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM categories WHERE slug = 'massas-tradicionais'");
-  
-  if (forceReset || !hasMassas || hasMassas.count === 0) {
-    await populatePadeiroMenu();
-  }
+    // Seed default admin account if none exists
+    await seedDefaultAdmin();
+
+    // Check if current menu already has "Massas Tradicionais"
+    const hasMassas = await db.get<{ count: number }>("SELECT COUNT(*) as count FROM categories WHERE slug = 'massas-tradicionais'");
+    
+    if (forceReset || !hasMassas || hasMassas.count === 0) {
+      await populatePadeiroMenu();
+    }
+
+    isDbInitialized = true;
+  })();
+
+  return initDbPromise;
 }
 
 export async function seedDefaultAdmin(): Promise<void> {

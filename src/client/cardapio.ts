@@ -256,24 +256,58 @@ class CardapioApp {
   }
 
   private async fetchProducts(): Promise<void> {
-    try {
-      if (this.menuContainer) {
-        this.menuContainer.innerHTML = `
-          <div class="col-span-full py-16 text-center text-gray-500">
-            <i class="fa fa-spinner fa-spin text-3xl mb-3 text-[#d97706]"></i>
-            <p class="font-medium">Carregando as delícias do cardápio artesanal...</p>
-          </div>
-        `;
-      }
+    const CACHE_KEY = "padeiro_products_cache";
+    let hasLoadedFromCache = false;
 
-      const res = await fetch(`/api/products?active=1&_t=${Date.now()}`);
+    // 1. Instant rendering from local cache (0ms perceived load time!)
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.rawProducts = parsed;
+          this.groupRawProducts();
+          this.renderMenu();
+          hasLoadedFromCache = true;
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao carregar cache local de produtos:", e);
+    }
+
+    // Se não tinha cache, exibe o indicador de carregamento
+    if (!hasLoadedFromCache && this.menuContainer) {
+      this.menuContainer.innerHTML = `
+        <div class="col-span-full py-16 text-center text-gray-500">
+          <i class="fa fa-spinner fa-spin text-3xl mb-3 text-[#d97706]"></i>
+          <p class="font-medium">Carregando as delícias do cardápio artesanal...</p>
+        </div>
+      `;
+    }
+
+    // 2. Fetch fresh products from API (fast with server cache + CDN)
+    try {
+      const res = await fetch('/api/products?active=1');
       if (!res.ok) throw new Error("Erro ao carregar produtos");
-      this.rawProducts = await res.json();
-      this.groupRawProducts();
-      this.renderMenu();
+      const freshProducts: RawProduct[] = await res.json();
+
+      const freshStr = JSON.stringify(freshProducts);
+      const cachedStr = localStorage.getItem(CACHE_KEY);
+
+      // Só re-renderiza se os dados realmente mudaram ou se não tinha cache
+      if (!hasLoadedFromCache || freshStr !== cachedStr) {
+        this.rawProducts = freshProducts;
+        try {
+          localStorage.setItem(CACHE_KEY, freshStr);
+        } catch (e) {
+          // ignore quota error
+        }
+        this.groupRawProducts();
+        this.renderMenu();
+      }
     } catch (error) {
       console.error(error);
-      if (this.menuContainer) {
+      if (!hasLoadedFromCache && this.menuContainer) {
         this.menuContainer.innerHTML = `
           <div class="col-span-full py-16 text-center text-red-500">
             <i class="fa fa-exclamation-triangle text-3xl mb-3"></i>
@@ -579,6 +613,8 @@ class CardapioApp {
           <img 
             src="${product.image_url}" 
             alt="${product.baseName}"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
             onerror="this.src='/assets/padeiro/paes.png'"
           />

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { Category } from '../types';
 import { requireAdminAuth } from '../auth';
+import { clearProductsCache } from './products';
 
 const router = Router();
 
@@ -64,6 +65,7 @@ router.post('/', requireAdminAuth, async (req: Request, res: Response) => {
       'SELECT * FROM categories WHERE id = ?',
       [result.lastInsertRowid]
     );
+    clearProductsCache();
     res.status(201).json(newCategory);
   } catch (error: any) {
     console.error('Erro ao criar categoria:', error);
@@ -97,6 +99,7 @@ router.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
     }
 
     await db.run('DELETE FROM categories WHERE id = ?', [catId]);
+    clearProductsCache();
     res.json({ success: true, message: 'Categoria excluída com sucesso' });
   } catch (error: any) {
     console.error('Erro ao excluir categoria:', error);

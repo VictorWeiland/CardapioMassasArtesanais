@@ -37,10 +37,10 @@ function getRootDir(): string {
 const isVercel = Boolean(process.env.VERCEL);
 const rootDir = getRootDir();
 
-app.use('/assets', express.static(path.join(rootDir, 'assets')));
-app.use('/uploads', express.static(isVercel ? '/tmp/uploads' : path.join(rootDir, 'uploads')));
-app.use('/styles', express.static(path.join(rootDir, 'styles')));
-app.use('/public', express.static(path.join(rootDir, 'public')));
+app.use('/assets', express.static(path.join(rootDir, 'assets'), { maxAge: '7d', etag: true }));
+app.use('/uploads', express.static(isVercel ? '/tmp/uploads' : path.join(rootDir, 'uploads'), { maxAge: '7d', etag: true }));
+app.use('/styles', express.static(path.join(rootDir, 'styles'), { maxAge: '1d', etag: true }));
+app.use('/public', express.static(path.join(rootDir, 'public'), { maxAge: '1d', etag: true }));
 app.use(express.static(rootDir));
 
 // Explicit Favicon routes to guarantee delivery on Vercel and local

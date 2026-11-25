@@ -44,14 +44,33 @@ export const upload = multer({
   fileFilter
 });
 
+interface ProductsCacheEntry {
+  data: Product[];
+  timestamp: number;
+}
+
+const productsMemoryCache = new Map<string, ProductsCacheEntry>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds in memory
+
+export function clearProductsCache(): void {
+  productsMemoryCache.clear();
+}
+
 // GET /api/products - List all products
 router.get('/', async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-
     const { category_id, active, search } = req.query;
+    const cacheKey = `cat_${category_id || 'all'}_act_${active || 'all'}_s_${search || ''}`;
+
+    // Check memory cache
+    const cached = productsMemoryCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=180');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached.data);
+    }
+
     let query = `
       SELECT p.*, c.name as category_name, c.slug as category_slug
       FROM products p
@@ -78,6 +97,12 @@ router.get('/', async (req: Request, res: Response) => {
     query += ' ORDER BY p.category_id ASC, p.id ASC';
 
     const products = await db.all<Product>(query, params);
+
+    // Save to memory cache
+    productsMemoryCache.set(cacheKey, { data: products, timestamp: now });
+
+    res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=180');
+    res.setHeader('X-Cache', 'MISS');
     res.json(products);
   } catch (error: any) {
     console.error('Erro ao buscar produtos:', error);
@@ -161,6 +186,7 @@ router.post('/', requireAdminAuth, upload.single('image'), async (req: Request, 
       WHERE p.id = ?
     `, [result.lastInsertRowid]);
 
+    clearProductsCache();
     res.status(201).json(createdProduct);
   } catch (error: any) {
     console.error('Erro ao criar produto:', error);
@@ -212,6 +238,7 @@ router.put('/:id', requireAdminAuth, upload.single('image'), async (req: Request
       WHERE p.id = ?
     `, [id]);
 
+    clearProductsCache();
     res.json(updatedProduct);
   } catch (error: any) {
     console.error('Erro ao atualizar produto:', error);
@@ -232,6 +259,7 @@ router.patch('/:id/toggle', requireAdminAuth, async (req: Request, res: Response
     const newActive = existing.active === 1 ? 0 : 1;
     await db.run('UPDATE products SET active = ? WHERE id = ?', [newActive, id]);
 
+    clearProductsCache();
     res.json({ id: Number(id), active: newActive });
   } catch (error: any) {
     res.status(500).json({ error: 'Erro ao alternar status do produto', details: error.message });
@@ -261,6 +289,7 @@ router.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
       }
     }
 
+    clearProductsCache();
     res.json({ message: 'Produto excluído com sucesso', id: Number(id) });
   } catch (error: any) {
     console.error('Erro ao excluir produto:', error);
